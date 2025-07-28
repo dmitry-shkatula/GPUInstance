@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using GPUInstance;
 using UnityEngine;
 
 using InstanceData = GPUInstance.InstanceData<GPUInstance.InstanceProperties>;
@@ -7,6 +8,8 @@ namespace GPUInstanceTest
 {
     public class parasiteanimdemo : MonoBehaviour
     {
+        [Range(0, 1)]
+        public float blend;
         public GPUInstance.GPUSkinnedMeshComponent skinned_mesh;
         public int NInstancesSqrd = 10;
         public Camera FrustumCullingCamera = null;
@@ -15,6 +18,21 @@ namespace GPUInstanceTest
         private GPUInstance.SkinnedMesh[,] instances;
 
         private GameObject[] bones_unity = null;
+
+        private GPUAnimation.Animation _animA, _animB;
+        private float _blend = 0f;
+        private float _lastBlend = -1f; // Для отслеживания изменений
+        private ulong _animA_tick_start, _animB_tick_start;
+
+        public void SetAnimationBlend(GPUAnimation.Animation a, GPUAnimation.Animation b, float blend, float speedA = 1, float speedB = 1, float startA = 0, float startB = 0)
+        {
+            _animA = a;
+            _animB = b;
+            _blend = Mathf.Clamp01(blend);
+            _animA_tick_start = this.m.Ticks;
+            _animB_tick_start = this.m.Ticks;
+            // Можно добавить поддержку скоростей и времени старта для каждой анимации
+        }
 
         // Start is called before the first frame update
         void Start()
@@ -66,6 +84,11 @@ namespace GPUInstanceTest
                 obj.name = "Calculated Bone Transform " + i.ToString();
                 bones_unity[i] = obj;
             }
+            
+            // Инициализируем blending
+            _lastBlend = blend;
+            instances[0, 0].SetAnimationBlend(skinned_mesh.anim.animations[0], skinned_mesh.anim.animations[1], blend);
+            instances[0, 0].UpdateRoot();
         }
 
         int f = 1;
@@ -74,14 +97,46 @@ namespace GPUInstanceTest
         {
             // Assign frustum culling camera
             m.FrustumCamera = FrustumCullingCamera;
+            
+            // Применяем blending только при изменении значения
+            if (Mathf.Abs(blend - _lastBlend) > 0.001f)
+            {
+                // Попробуем другие анимации
+                instances[0, 0].SetAnimationBlend(skinned_mesh.anim.animations[0], skinned_mesh.anim.animations[1], blend);
+                instances[0, 0].UpdateRoot(); // Обновляем изменения на GPU
+                _lastBlend = blend;
+                
+                // Отладочная информация
+                Debug.Log($"Blend changed to: {blend}, AnimA: {skinned_mesh.anim.animations[0].name}, AnimB: {skinned_mesh.anim.animations[1].name}");
+                Debug.Log($"Props: animID={instances[0, 0].mesh.props_animationID}, animID_B={instances[0, 0].mesh.props_animationID_B}, blend={instances[0, 0].mesh.props_animationBlend}");
+                Debug.Log($"Ticks: A={instances[0, 0].mesh.props_instanceTicks}, B={instances[0, 0].mesh.props_instanceTicks_B}");
+                Debug.Log($"AnimA ID: {skinned_mesh.anim.animations[0].GPUAnimationID}, AnimB ID: {skinned_mesh.anim.animations[1].GPUAnimationID}");
+            }
+            
+            // Обновляем время второй анимации в каждом кадре
+            if (instances[0, 0].mesh.props_animationID_B > 0)
+            {
+                instances[0, 0].mesh.props_instanceTicks_B += (uint)(Time.deltaTime * GPUInstance.Ticks.TicksPerSecond);
+                instances[0, 0].UpdateRoot();
+                
+                // Отладочная информация каждые 60 кадров
+                if (f % 60 == 0)
+                {
+                    Debug.Log($"Animation B active: ID={instances[0, 0].mesh.props_animationID_B}, Ticks={instances[0, 0].mesh.props_instanceTicks_B}");
+                }
+            }
+            else
+            {
+                // Отладочная информация каждые 60 кадров
+                if (f % 60 == 0)
+                {
+                    Debug.Log($"Animation B inactive: ID={instances[0, 0].mesh.props_animationID_B}");
+                }
+            }
+            
             // Run update
             m.Update(Time.deltaTime);
-
-            if (f % 1000 == 0)
-            {
-                instances[0, 0].SetAnimation(skinned_mesh.anim.animations[4], speed: Random.Range(0.1f, 3.0f), start_time: Random.Range(0.0f, 1.0f));
-                instances[0, 0].UpdateRoot();
-            }
+            
 
             // visualize bone cpu-gpu synchronization
             for (int i = 0; i < bones_unity.Length; i++)
@@ -94,6 +149,14 @@ namespace GPUInstanceTest
             }
 
             f++;
+        }
+
+
+        [ContextMenu("Refresh")]
+        private void Refresh()
+        {
+            instances[0, 0].SetAnimationBlend(skinned_mesh.anim.animations[4], skinned_mesh.anim.animations[2], blend);
+            instances[0, 0].UpdateRoot();
         }
 
         private void OnDestroy()

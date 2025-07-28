@@ -1729,7 +1729,8 @@ namespace GPUInstance
             if (data.HasProperties)
             {
                 _property_delta_buffer.UpdateInstance(new instance_properties_delta(data.props_offset, data.props_tiling, data.id, data.props_color,
-                    data.props_instanceTicks, data.props_animationID, data.props_pathID, data.props_extra, data.propertyID, data.DirtyFlags, data.props_pathInstanceTicks, data.props_pad2),
+                    data.props_instanceTicks, data.props_animationID, 0, 0, 0f, // animationID_B, instanceTicks_B, animationBlend по умолчанию
+                    data.props_pathID, data.props_extra, data.propertyID, data.DirtyFlags, data.props_pathInstanceTicks, data.props_pad2, 0), // padding = 0
                     instance_deleted: false);
             }
         }

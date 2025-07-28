@@ -207,6 +207,9 @@ namespace GPUInstance
         /// AnimationID
         /// </summary>
         public int props_animationID { get { return this.props.animationID; } set { this.props.animationID = value; } }
+        public int props_animationID_B { get { return this.props.animationID_B; } set { this.props.animationID_B = value; } }
+        public uint props_instanceTicks_B { get { return this.props.instanceTicks_B; } set { this.props.instanceTicks_B = value; } }
+        public float props_animationBlend { get { return this.props.animationBlend; } set { this.props.animationBlend = value; } }
         /// <summary>
         /// Color Highest order bytes -> low RGBA
         /// </summary>

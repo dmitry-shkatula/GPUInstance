@@ -230,6 +230,49 @@ namespace GPUInstance
             this._anim_tick_start = this.m.Ticks;
         }
 
+        public void SetAnimationBlend(GPUAnimation.Animation animA, GPUAnimation.Animation animB, float blend, float speedA = 1, float speedB = 1, float startA = 0, float startB = 0, bool loopA = true, bool loopB = true)
+        {
+            if (!_init)
+                throw new System.Exception("Error, skinned mesh is not initialized.");
+
+            // Сохраняем текущее время анимации, если анимации не меняются
+            uint currentTicks = this.mesh.props_instanceTicks;
+            uint currentTicks_B = this.mesh.props_instanceTicks_B;
+            
+            // Сбрасываем время только если анимации действительно изменились
+            bool animAChanged = (this.mesh.props_animationID != animA.GPUAnimationID);
+            bool animBChanged = (this.mesh.props_animationID_B != animB.GPUAnimationID);
+            
+            this.mesh.props_animationID = animA.GPUAnimationID;
+            this.mesh.props_animationID_B = animB.GPUAnimationID;
+            this.mesh.props_instanceTicks = animAChanged ? (uint)(startA * Ticks.TicksPerSecond) : currentTicks;
+            this.mesh.props_instanceTicks_B = animBChanged ? (uint)(startB * Ticks.TicksPerSecond) : currentTicks_B;
+            this.mesh.props_animationBlend = Mathf.Clamp01(blend);
+            this.mesh.props_AnimationSpeed = speedA; // NB: only speedA for now
+            this.mesh.props_AnimationPlayOnce = !loopA;
+            
+            // Устанавливаем флаги для обновления всех blending полей
+            this.mesh.DirtyFlags = this.mesh.DirtyFlags | DirtyFlag.props_AnimationID | DirtyFlag.props_InstanceTicks;
+
+            if (!ReferenceEquals(null, this.sub_mesh))
+            {
+                for (int i = 0; i < this.sub_mesh.Length; i++)
+                {
+                    uint subCurrentTicks = this.sub_mesh[i].props_instanceTicks;
+                    uint subCurrentTicks_B = this.sub_mesh[i].props_instanceTicks_B;
+                    
+                    this.sub_mesh[i].props_animationID = animA.GPUAnimationID;
+                    this.sub_mesh[i].props_animationID_B = animB.GPUAnimationID;
+                    this.sub_mesh[i].props_instanceTicks = animAChanged ? (uint)(startA * Ticks.TicksPerSecond) : subCurrentTicks;
+                    this.sub_mesh[i].props_instanceTicks_B = animBChanged ? (uint)(startB * Ticks.TicksPerSecond) : subCurrentTicks_B;
+                    this.sub_mesh[i].props_animationBlend = Mathf.Clamp01(blend);
+                    this.sub_mesh[i].props_AnimationSpeed = speedA;
+                    this.sub_mesh[i].props_AnimationPlayOnce = !loopA;
+                    this.sub_mesh[i].DirtyFlags = this.sub_mesh[i].DirtyFlags | DirtyFlag.props_AnimationID | DirtyFlag.props_InstanceTicks;
+                }
+            }
+        }
+
         /// <summary>
         /// Update the mesh instance data & update the animation instance skeleton & update gpu skeleton map.  Note* do not call Update() & dispose() in the same frame. It will cause a race condition on the gpu.
         /// </summary>

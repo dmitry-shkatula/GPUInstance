@@ -112,42 +112,42 @@ struct instance_delta
 
 struct instance_properties
 {
-  // (optional) texture offset
-  float2 offset;
-  // (optional) texture tiling
-  float2 tiling;
-  // id of instance for this property
-  int instance_id;
-  // (optional) color of instance
-  int color;
-  // (optional- if animatiom not used) instance ticks timer for animation
-  uint instanceTicks;
-  // id of animation
-  int animationID;
-  // id of path
-  int pathID;
-  // Bit usage : | Animation Speed 31 - 24 | Path Speed 23 - 8 | 7 - 5 Not Used | 4 Animation Culling | 3 Not used | 2 is Texture Animation | 1 Animation Play Once | 0 Not used
-  int extra;
-  // (optional- if path not used) instance tick timer used for path
-  uint pathInstanceTicks;
-  // not used
-  int pad2;
+  float2 offset;            // 8 bytes
+  float2 tiling;            // 8 bytes
+  int instance_id;          // 4 bytes
+  int color;                // 4 bytes
+  uint instanceTicks;       // 4 bytes
+  int animationID;          // 4 bytes
+  int animationID_B;        // 4 bytes
+  uint instanceTicks_B;     // 4 bytes
+  float animationBlend;     // 4 bytes
+  int pathID;               // 4 bytes
+  int extra;                // 4 bytes
+  int propertyID;           // 4 bytes
+  int DirtyFlags;           // 4 bytes
+  uint pathInstanceTicks;   // 4 bytes
+  int pad2;                 // 4 bytes
+  int padding;              // 4 bytes - для выравнивания до 72 байт
 };
 
 struct instance_properties_delta
 {
-  float2 offset;
-  float2 tiling;
-  int instance_id;
-  int color;
-  uint instanceTicks;
-  int animationID;
-  int pathID;
-  int extra;
-  int propertyID;
-  int DirtyFlags;
-  uint pathInstanceTicks;
-  int pad2;
+  float2 offset;            // 8 bytes
+  float2 tiling;            // 8 bytes
+  int instance_id;          // 4 bytes
+  int color;                // 4 bytes
+  uint instanceTicks;       // 4 bytes
+  int animationID;          // 4 bytes
+  int animationID_B;        // 4 bytes
+  uint instanceTicks_B;     // 4 bytes
+  float animationBlend;     // 4 bytes
+  int pathID;               // 4 bytes
+  int extra;                // 4 bytes
+  int propertyID;           // 4 bytes
+  int DirtyFlags;           // 4 bytes
+  uint pathInstanceTicks;   // 4 bytes
+  int pad2;                 // 4 bytes
+  int padding;              // 4 bytes - для выравнивания до 72 байт
 };
 
 struct hierarchy_delta
@@ -352,6 +352,19 @@ inline instance_properties update_instance_properties(instance_properties d, ins
   update_flag = delta.DirtyFlags & Dirty_Flag_props_Pad2;
   d.pad2 = update_flag > 0 ? delta.pad2 : d.pad2;
 
+  // Обновляем новые поля для blending
+  update_flag = delta.DirtyFlags & Dirty_Flag_props_AnimationID;
+  d.animationID_B = update_flag > 0 ? delta.animationID_B : d.animationID_B;
+
+  update_flag = delta.DirtyFlags & Dirty_Flag_props_InstanceTicks;
+  d.instanceTicks_B = update_flag > 0 ? delta.instanceTicks_B : d.instanceTicks_B;
+
+  update_flag = delta.DirtyFlags & Dirty_Flag_props_AnimationID;
+  d.animationBlend = update_flag > 0 ? delta.animationBlend : d.animationBlend;
+
+  update_flag = delta.DirtyFlags & Dirty_Flag_props_Pad2;
+  d.padding = update_flag > 0 ? delta.padding : d.padding;
+
   return d;
 }
 
@@ -364,11 +377,15 @@ inline instance_properties_delta instance_properties_delta_zero()
   d.color = 0;
   d.instanceTicks = 0;
   d.animationID = 0;
+  d.animationID_B = 0;
+  d.instanceTicks_B = 0;
+  d.animationBlend = 0.0f;
   d.pathID = 0;
   d.extra = 0;
   d.propertyID = 0;
   d.DirtyFlags = 0;
   d.pathInstanceTicks = 0;
   d.pad2 = 0;
+  d.padding = 0;
   return d;
 }

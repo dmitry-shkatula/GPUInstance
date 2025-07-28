@@ -133,30 +133,58 @@ namespace GPUInstance
 
         public struct instance_properties_delta : InstanceMeshDelta
         {
-            public const int kByteStride = 56;
+            public const int kByteStride = 72;
+            public Vector2 offset { get; set; }         // 8 bytes
+            public Vector2 tiling { get; set; }         // 8 bytes
+            public int instance_id { get; set; }        // 4 bytes
+            public int color { get; set; }              // 4 bytes
+            public uint instanceTicks { get; set; }     // 4 bytes
+            public int animationID { get; set; }        // 4 bytes
+            public int animationID_B { get; set; }      // 4 bytes
+            public uint instanceTicks_B { get; set; }   // 4 bytes
+            public float animationBlend { get; set; }   // 4 bytes
+            public int pathID { get; set; }             // 4 bytes
+            public int extra { get; set; }              // 4 bytes
+            public int propertyID { get; set; }         // 4 bytes
+            public int DirtyFlags { get; set; }         // 4 bytes
+            public uint pathInstanceTicks { get; set; } // 4 bytes
+            public int pad2 { get; set; }               // 4 bytes
+            public int padding { get; set; }            // 4 bytes - для выравнивания до 72 байт
 
-            public Vector2 offset { get; set; }
-            public Vector2 tiling { get; set; }
-            public int instance_id { get; set; }
-            public int color { get; set; }
-            public uint instanceTicks { get; set; }
-            public int animationID { get; set; }
-            public int pathID { get; set; }
-            public int extra { get; set; }
-            public int propertyID { get; set; }
-            public int DirtyFlags { get; set; }
-            public uint pathInstanceTicks { get; set; }
-            public int pad2 { get; set; }
+            public int id { get { return this.propertyID; } } // Реализация интерфейса InstanceMeshDelta
+            public ushort GetGroupID() { return 1; } // Заглушка, если не используется группировка
 
-            public int id { get { return this.propertyID; } }
-            public ushort GetGroupID() { return 1; }
-
-            public instance_properties_delta(in Vector2 offset, in Vector2 tiling, in int instance_id, in int color, in uint instanceTicks, in int animationID, in int pathID, 
-                in int extra, in int propertyID, in int DirtyFlags, in uint pathInstanceTicks, in int pad2)
+            public instance_properties_delta(
+                Vector2 offset, Vector2 tiling, int instance_id, int color, uint instanceTicks,
+                int animationID, int animationID_B, uint instanceTicks_B, float animationBlend,
+                int pathID, int extra, int propertyID, int DirtyFlags, uint pathInstanceTicks, int pad2, int padding)
             {
-                this.offset = offset; this.tiling = tiling; this.instance_id = instance_id; this.color = color; this.instanceTicks = instanceTicks; this.animationID = animationID; this.pathID = pathID;
-                this.extra = extra; this.propertyID = propertyID; this.DirtyFlags = DirtyFlags; this.pathInstanceTicks = pathInstanceTicks; this.pad2 = pad2;
+                this.offset = offset;
+                this.tiling = tiling;
+                this.instance_id = instance_id;
+                this.color = color;
+                this.instanceTicks = instanceTicks;
+                this.animationID = animationID;
+                this.animationID_B = animationID_B;
+                this.instanceTicks_B = instanceTicks_B;
+                this.animationBlend = animationBlend;
+                this.pathID = pathID;
+                this.extra = extra;
+                this.propertyID = propertyID;
+                this.DirtyFlags = DirtyFlags;
+                this.pathInstanceTicks = pathInstanceTicks;
+                this.pad2 = pad2;
+                this.padding = padding;
             }
+
+            // Конструктор для обратной совместимости (12 аргументов)
+            public instance_properties_delta(
+                Vector2 offset, Vector2 tiling, int instance_id, int color, uint instanceTicks,
+                int animationID, int pathID, int extra, int propertyID, uint pathInstanceTicks, int pad2)
+                : this(offset, tiling, instance_id, color, instanceTicks,
+                       animationID, 0, 0, 0f, // blending-поля по умолчанию
+                       pathID, extra, propertyID, 0, pathInstanceTicks, pad2, 0) // DirtyFlags = 0, padding = 0
+            { }
         }
     }
 
@@ -165,21 +193,25 @@ namespace GPUInstance
     /// </summary>
     public struct InstanceProperties : InstanceDataProps
     {
-        public Vector2 offset { get; set; }
-        public Vector2 tiling { get; set; }
-        public int instance_id { get; set; }
-        public int color { get; set; }
-        public uint instanceTicks { get; set; }
-        public int animationID { get; set; }
-        public int pathID { get; set; }
-        public int extra { get; set; }
-        public int propertyID { get; set; }
-        public int DirtyFlags { get; set; }
-        public uint pathInstanceTicks { get; set; }
-        public int pad2 { get; set; }
-
-
-        public ulong pathStartTick { get; set; } // cpu-only field
+        public const int kByteStride = 72; // Размер структуры для GPU (без ulong pathStartTick)
+        
+        public Vector2 offset { get; set; }         // 8 bytes
+        public Vector2 tiling { get; set; }         // 8 bytes
+        public int instance_id { get; set; }        // 4 bytes
+        public int color { get; set; }              // 4 bytes
+        public uint instanceTicks { get; set; }     // 4 bytes
+        public int animationID { get; set; }        // 4 bytes
+        public int animationID_B { get; set; }      // 4 bytes
+        public uint instanceTicks_B { get; set; }   // 4 bytes
+        public float animationBlend { get; set; }   // 4 bytes
+        public int pathID { get; set; }             // 4 bytes
+        public int extra { get; set; }              // 4 bytes
+        public int propertyID { get; set; }         // 4 bytes
+        public int DirtyFlags { get; set; }         // 4 bytes
+        public uint pathInstanceTicks { get; set; } // 4 bytes
+        public int pad2 { get; set; }               // 4 bytes
+        public int padding { get; set; }            // 4 bytes - для выравнивания до 72 байт
+        public ulong pathStartTick { get; set; }    // 8 bytes (CPU only)
     }
 
     /// <summary>
@@ -199,6 +231,9 @@ namespace GPUInstance
         public int DirtyFlags { get { throw new System.NotImplementedException(); } set { throw new System.NotImplementedException(); } }
         public uint pathInstanceTicks { get { throw new System.NotImplementedException(); } set { throw new System.NotImplementedException(); } }
         public int pad2 { get { throw new System.NotImplementedException(); } set { throw new System.NotImplementedException(); } }
+        public int animationID_B { get { throw new System.NotImplementedException(); } set { throw new System.NotImplementedException(); } }
+        public uint instanceTicks_B { get { throw new System.NotImplementedException(); } set { throw new System.NotImplementedException(); } }
+        public float animationBlend { get { throw new System.NotImplementedException(); } set { throw new System.NotImplementedException(); } }
 
 
         public ulong pathStartTick { get { throw new System.NotImplementedException(); } set { throw new System.NotImplementedException(); } }
@@ -308,6 +343,9 @@ namespace GPUInstance
         public int DirtyFlags { get; set; }
         public uint pathInstanceTicks { get; set; }
         public int pad2 { get; set; }
+        public int animationID_B { get; set; }
+        public uint instanceTicks_B { get; set; }
+        public float animationBlend { get; set; }
 
 
         public ulong pathStartTick { get; set; } // cpu-only field

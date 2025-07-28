@@ -752,6 +752,14 @@ void PropertySimulation(uint3 id : SV_DispatchThreadID)
       int boneAnimID = animToBoneAnimMapBuffer[props.animationID + 0]; // dont actually need a bone... '0' is root bone and all boneAnimations for the same clip will have the same clip length (seconds)!
       float anim_clip_length = get_AnimationClipLength(boneAnimID);
       float t = CalculateAnimationTicks(play_once, anim_clip_length, anim_speed, props.instanceTicks);
+      
+      // Обновляем время для второй анимации (blending)
+      if (props.animationID_B > 0)
+      {
+        int boneAnimID_B = animToBoneAnimMapBuffer[props.animationID_B + 0];
+        float anim_clip_length_B = get_AnimationClipLength(boneAnimID_B);
+        float tB = CalculateAnimationTicks(play_once, anim_clip_length_B, anim_speed, props.instanceTicks_B);
+      }
     }
 
     // Handle path
@@ -824,6 +832,9 @@ void MotionUpdate(uint3 id : SV_DispatchThreadID)
     instance_properties props = propertyBuffer[data.propertyID];
 
     int animationID = props.animationID;
+    int animationID_B = props.animationID_B;
+    uint instanceTicks_B = props.instanceTicks_B;
+    float animationBlend = props.animationBlend;
     bool is_texture_anim = get_bit(props.extra, Extra_Flag_Tex_Anim); // check if texture animation
     int bone_lod = get_bone_lod2(data.data2); // lowest lod detail bone can animate at (lod0 is highest detail)
     int lod = get_lod(data.data1); // current lod of instance
@@ -837,14 +848,61 @@ void MotionUpdate(uint3 id : SV_DispatchThreadID)
     {
       int bone_index = get_bone_index2(data.data2);
       int boneAnimID = animToBoneAnimMapBuffer[animationID + bone_index];
+      
+      // Проверяем, есть ли вторая анимация для blending
+      bool has_second_animation = (animationID_B > 0);
+      int boneAnimID_B = has_second_animation ? animToBoneAnimMapBuffer[animationID_B + bone_index] : boneAnimID;
+      
+      // Проверяем валидность анимаций
+      if (boneAnimID <= 0) return; // Если первая анимация невалидна, выходим
+      if (has_second_animation && boneAnimID_B <= 0) has_second_animation = false; // Если вторая анимация невалидна, отключаем blending
+      
+      // Отладочная информация: принудительно включаем вторую анимацию для тестирования
+      if (animationBlend > 0.5f)
+      {
+        has_second_animation = true;
+      }
 
       float anim_clip_length = get_AnimationClipLength(boneAnimID);
+      float anim_clip_length_B = has_second_animation ? get_AnimationClipLength(boneAnimID_B) : anim_clip_length;
       float t = (float)props.instanceTicks / (float)(anim_clip_length * 100);
+      float tB = has_second_animation ? (float)instanceTicks_B / (float)(anim_clip_length_B * 100) : t;
       t = t <= 0 ? 0.0000001 : (t >= 1 ? 0.9999999 : t); // exclusive clamp
+      tB = tB <= 0 ? 0.0000001 : (tB >= 1 ? 0.9999999 : tB);
 
-      data.position = InterpPosition(t, boneAnimID); //interp
-      data.rotation = InterpRotation(t, boneAnimID);
-      data.scale = InterpScale(t, boneAnimID);
+      float3 posA = InterpPosition(t, boneAnimID);
+      float3 posB = has_second_animation ? InterpPosition(tB, boneAnimID_B) : posA;
+      float3 pos = lerp(posA, posB, animationBlend);
+
+      float3 scaleA = InterpScale(t, boneAnimID);
+      float3 scaleB = has_second_animation ? InterpScale(tB, boneAnimID_B) : scaleA;
+      float3 scale = lerp(scaleA, scaleB, animationBlend);
+
+      float4 rotA = InterpRotation(t, boneAnimID);
+      float4 rotB = has_second_animation ? InterpRotation(tB, boneAnimID_B) : rotA;
+      float4 rot = Slerp(rotA, rotB, animationBlend);
+      
+      // Простой тест: если blend = 1, используем только вторую анимацию
+      if (animationBlend >= 0.99f && has_second_animation)
+      {
+        pos = InterpPosition(tB, boneAnimID_B);
+        scale = InterpScale(tB, boneAnimID_B);
+        rot = InterpRotation(tB, boneAnimID_B);
+      }
+      
+      // Еще более простой тест: если blend > 0.5, используем только вторую анимацию
+      if (animationBlend > 0.5f && has_second_animation)
+      {
+        pos = InterpPosition(tB, boneAnimID_B);
+        scale = InterpScale(tB, boneAnimID_B);
+        rot = InterpRotation(tB, boneAnimID_B);
+      }
+      
+
+
+      data.position = pos;
+      data.rotation = rot;
+      data.scale = scale;
     }
 
     //apply update
