@@ -252,7 +252,7 @@ namespace GPUInstance
             this.mesh.props_AnimationPlayOnce = !loopA;
             
             // Устанавливаем флаги для обновления всех blending полей
-            this.mesh.DirtyFlags = this.mesh.DirtyFlags | DirtyFlag.props_AnimationID | DirtyFlag.props_InstanceTicks;
+            this.mesh.DirtyFlags = this.mesh.DirtyFlags | DirtyFlag.props_AnimationID | DirtyFlag.props_InstanceTicks | DirtyFlag.props_AnimationBlend;
 
             if (!ReferenceEquals(null, this.sub_mesh))
             {
@@ -268,7 +268,28 @@ namespace GPUInstance
                     this.sub_mesh[i].props_animationBlend = Mathf.Clamp01(blend);
                     this.sub_mesh[i].props_AnimationSpeed = speedA;
                     this.sub_mesh[i].props_AnimationPlayOnce = !loopA;
-                    this.sub_mesh[i].DirtyFlags = this.sub_mesh[i].DirtyFlags | DirtyFlag.props_AnimationID | DirtyFlag.props_InstanceTicks;
+                    this.sub_mesh[i].DirtyFlags = this.sub_mesh[i].DirtyFlags | DirtyFlag.props_AnimationID | DirtyFlag.props_InstanceTicks | DirtyFlag.props_AnimationBlend;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Изменяет только blend factor без сброса анимаций
+        /// </summary>
+        public void SetBlendFactor(float blend)
+        {
+            if (!_init)
+                throw new System.Exception("Error, skinned mesh is not initialized.");
+
+            this.mesh.props_animationBlend = Mathf.Clamp01(blend);
+            this.mesh.DirtyFlags = this.mesh.DirtyFlags | DirtyFlag.props_AnimationBlend;
+            
+            if (!ReferenceEquals(null, this.sub_mesh))
+            {
+                for (int i = 0; i < this.sub_mesh.Length; i++)
+                {
+                    this.sub_mesh[i].props_animationBlend = Mathf.Clamp01(blend);
+                    this.sub_mesh[i].DirtyFlags = this.sub_mesh[i].DirtyFlags | DirtyFlag.props_AnimationBlend;
                 }
             }
         }

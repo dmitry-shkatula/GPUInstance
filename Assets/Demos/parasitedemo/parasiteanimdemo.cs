@@ -87,7 +87,7 @@ namespace GPUInstanceTest
             
             // Инициализируем blending
             _lastBlend = blend;
-            instances[0, 0].SetAnimationBlend(skinned_mesh.anim.animations[0], skinned_mesh.anim.animations[1], blend);
+            instances[0, 0].SetAnimationBlend(skinned_mesh.anim.animations[2], skinned_mesh.anim.animations[4], blend);
             instances[0, 0].UpdateRoot();
         }
 
@@ -98,24 +98,16 @@ namespace GPUInstanceTest
             // Assign frustum culling camera
             m.FrustumCamera = FrustumCullingCamera;
             
-            // Применяем blending только при изменении значения
+                        // Применяем blending только при изменении значения
             if (Mathf.Abs(blend - _lastBlend) > 0.001f)
             {
-                // Попробуем другие анимации
-                instances[0, 0].SetAnimationBlend(skinned_mesh.anim.animations[0], skinned_mesh.anim.animations[4], blend);
+                // Изменяем только blend factor без сброса анимаций
+                instances[0, 0].SetBlendFactor(blend);
                 instances[0, 0].UpdateRoot(); // Обновляем изменения на GPU
                 _lastBlend = blend;
-                
             }
             
-            // Обновляем время второй анимации в каждом кадре
-            if (instances[0, 0].mesh.props_animationID_B > 0)
-            {
-                instances[0, 0].mesh.props_instanceTicks_B += (uint)(Time.deltaTime * GPUInstance.Ticks.TicksPerSecond);
-                instances[0, 0].UpdateRoot();
-                
-
-            }
+            // Вторая анимация обновляется автоматически в compute shader
             
             // Run update
             m.Update(Time.deltaTime);

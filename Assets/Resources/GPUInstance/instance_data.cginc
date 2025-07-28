@@ -361,14 +361,14 @@ inline instance_properties update_instance_properties(instance_properties d, ins
   update_flag = delta.DirtyFlags & Dirty_Flag_props_Pad1;
   d.pad1 = update_flag > 0 ? delta.pad1 : d.pad1;
 
-  // Обновляем новые поля для blending (временно используем существующие флаги)
-  update_flag = delta.DirtyFlags & Dirty_Flag_props_AnimationID;
+  // Обновляем новые поля для blending
+  update_flag = delta.DirtyFlags & Dirty_Flag_props_AnimationID_B;
   d.animationID_B = update_flag > 0 ? delta.animationID_B : d.animationID_B;
 
-  update_flag = delta.DirtyFlags & Dirty_Flag_props_InstanceTicks;
+  update_flag = delta.DirtyFlags & Dirty_Flag_props_InstanceTicks_B;
   d.instanceTicks_B = update_flag > 0 ? delta.instanceTicks_B : d.instanceTicks_B;
 
-  update_flag = delta.DirtyFlags & Dirty_Flag_props_AnimationID;
+  update_flag = delta.DirtyFlags & Dirty_Flag_props_AnimationBlend;
   d.animationBlend = update_flag > 0 ? delta.animationBlend : d.animationBlend;
 
   update_flag = delta.DirtyFlags & Dirty_Flag_props_Pad1;

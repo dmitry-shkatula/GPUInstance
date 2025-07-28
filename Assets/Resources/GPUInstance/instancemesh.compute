@@ -753,13 +753,16 @@ void PropertySimulation(uint3 id : SV_DispatchThreadID)
       float anim_clip_length = get_AnimationClipLength(boneAnimID);
       float t = CalculateAnimationTicks(play_once, anim_clip_length, anim_speed, props.instanceTicks);
       
-      // Обновляем время для второй анимации (blending)
-      if (props.animationID_B > 0)
-      {
-        int boneAnimID_B = animToBoneAnimMapBuffer[props.animationID_B + 0];
-        float anim_clip_length_B = get_AnimationClipLength(boneAnimID_B);
-        float tB = CalculateAnimationTicks(play_once, anim_clip_length_B, anim_speed, props.instanceTicks_B);
-      }
+                    // Обновляем время для второй анимации (blending)
+              if (props.animationID_B > 0)
+              {
+                int boneAnimID_B = animToBoneAnimMapBuffer[props.animationID_B + 0];
+                float anim_clip_length_B = get_AnimationClipLength(boneAnimID_B);
+                float tB = CalculateAnimationTicks(play_once, anim_clip_length_B, anim_speed, props.instanceTicks_B);
+                
+                // Отладочная информация (сохраняем в pad1 для проверки)
+                props.pad1 = (int)(props.animationBlend * 1000.0f); // Сохраняем blend * 1000 в pad1
+              }
     }
 
     // Handle path
