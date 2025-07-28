@@ -857,14 +857,8 @@ void MotionUpdate(uint3 id : SV_DispatchThreadID)
       if (boneAnimID <= 0) return; // Если первая анимация невалидна, выходим
       if (has_second_animation && boneAnimID_B <= 0) has_second_animation = false; // Если вторая анимация невалидна, отключаем blending
       
-      // Отладочная информация: принудительно включаем вторую анимацию для тестирования
-      if (animationBlend > 0.5f)
-      {
-        has_second_animation = true;
-      }
-      
-      // ПРИНУДИТЕЛЬНЫЙ ТЕСТ: всегда включаем вторую анимацию
-      has_second_animation = true;
+      // Проверяем, есть ли вторая анимация для blending
+      has_second_animation = (props.animationID_B > 0) && (props.animationBlend > 0.0f);
 
       float anim_clip_length = get_AnimationClipLength(boneAnimID);
       float anim_clip_length_B = has_second_animation ? get_AnimationClipLength(boneAnimID_B) : anim_clip_length;
@@ -873,22 +867,43 @@ void MotionUpdate(uint3 id : SV_DispatchThreadID)
       t = t <= 0 ? 0.0000001 : (t >= 1 ? 0.9999999 : t); // exclusive clamp
       tB = tB <= 0 ? 0.0000001 : (tB >= 1 ? 0.9999999 : tB);
 
-      // ТЕСТ: Используем первую анимацию с разными параметрами времени
+      // Нормальная логика blending
       float3 pos;
       float3 scale;
       float4 rot;
+
+    	props.pad2 = boneAnimID_B;
+    	// Сохраняем tB * 1000 в props.pad1 для отладки
+    	props.pad1 = (uint)(tB * 1000.0f);
+    	// Сохраняем animationID_B в props.pad1 для отладки (вместо tB)
+    	props.pad1 = props.animationID_B;
       
-      // ТЕСТ: Используем boneAnimID_B напрямую
-      // Отладочная информация - сохраняем boneAnimID_B в props.pad2
-      props.pad2 = boneAnimID_B;
-      // Сохраняем tB * 1000 в props.pad1 для отладки
-      props.pad1 = (uint)(tB * 1000.0f);
-      // Сохраняем animationID_B в props.pad1 для отладки (вместо tB)
-      props.pad1 = props.animationID_B;
-      
-      pos = InterpPosition(t, boneAnimID_B);
-      scale = InterpScale(t, boneAnimID_B);
-      rot = InterpRotation(t, boneAnimID_B);
+    	pos = InterpPosition(t, boneAnimID_B);
+    	scale = InterpScale(t, boneAnimID_B);
+    	rot = InterpRotation(t, boneAnimID_B);
+    	
+      if (has_second_animation)
+      {
+        // Blending между двумя анимациями
+        float3 posA = InterpPosition(t, boneAnimID);
+        float3 posB = InterpPosition(tB, boneAnimID_B);
+        pos = lerp(posA, posB, props.animationBlend);
+        
+        float3 scaleA = InterpScale(t, boneAnimID);
+        float3 scaleB = InterpScale(tB, boneAnimID_B);
+        scale = lerp(scaleA, scaleB, props.animationBlend);
+        
+        float4 rotA = InterpRotation(t, boneAnimID);
+        float4 rotB = InterpRotation(tB, boneAnimID_B);
+        rot = Slerp(rotA, rotB, props.animationBlend);
+      }
+      else
+      {
+        // Только первая анимация
+        pos = InterpPosition(t, boneAnimID);
+        scale = InterpScale(t, boneAnimID);
+        rot = InterpRotation(t, boneAnimID);
+      }
       
 
 

@@ -253,10 +253,6 @@ namespace GPUInstance
             
             // Устанавливаем флаги для обновления всех blending полей
             this.mesh.DirtyFlags = this.mesh.DirtyFlags | DirtyFlag.props_AnimationID | DirtyFlag.props_InstanceTicks;
-            
-            // Отладочная информация
-            Debug.Log($"SetAnimationBlend: animationID={this.mesh.props_animationID}, animationID_B={this.mesh.props_animationID_B}, blend={this.mesh.props_animationBlend}");
-            Debug.Log($"SetAnimationBlend: DirtyFlags before={this.mesh.DirtyFlags}");
 
             if (!ReferenceEquals(null, this.sub_mesh))
             {

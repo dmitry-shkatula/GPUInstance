@@ -103,16 +103,9 @@ namespace GPUInstanceTest
             {
                 // Попробуем другие анимации
                 instances[0, 0].SetAnimationBlend(skinned_mesh.anim.animations[0], skinned_mesh.anim.animations[4], blend);
-                Debug.Log($"After SetAnimationBlend: DirtyFlags={instances[0, 0].mesh.DirtyFlags}");
                 instances[0, 0].UpdateRoot(); // Обновляем изменения на GPU
-                Debug.Log($"After UpdateRoot: DirtyFlags={instances[0, 0].mesh.DirtyFlags}");
                 _lastBlend = blend;
                 
-                // Отладочная информация
-                Debug.Log($"Blend changed to: {blend}, AnimA: {skinned_mesh.anim.animations[0].name}, AnimB: {skinned_mesh.anim.animations[1].name}");
-                Debug.Log($"Props: animID={instances[0, 0].mesh.props_animationID}, animID_B={instances[0, 0].mesh.props_animationID_B}, blend={instances[0, 0].mesh.props_animationBlend}");
-                Debug.Log($"Ticks: A={instances[0, 0].mesh.props_instanceTicks}, B={instances[0, 0].mesh.props_instanceTicks_B}");
-                Debug.Log($"AnimA ID: {skinned_mesh.anim.animations[0].GPUAnimationID}, AnimB ID: {skinned_mesh.anim.animations[1].GPUAnimationID}");
             }
             
             // Обновляем время второй анимации в каждом кадре
@@ -121,31 +114,11 @@ namespace GPUInstanceTest
                 instances[0, 0].mesh.props_instanceTicks_B += (uint)(Time.deltaTime * GPUInstance.Ticks.TicksPerSecond);
                 instances[0, 0].UpdateRoot();
                 
-                // Отладочная информация каждые 60 кадров
-                if (f % 60 == 0)
-                {
-                    Debug.Log($"Animation B active: ID={instances[0, 0].mesh.props_animationID_B}, Ticks={instances[0, 0].mesh.props_instanceTicks_B}");
-                    Debug.Log($"Blend value: {instances[0, 0].mesh.props_animationBlend}");
-                    Debug.Log($"Animation A ID: {instances[0, 0].mesh.props_animationID}");
-                    Debug.Log($"Animation B ID: {instances[0, 0].mesh.props_animationID_B}");
-                    Debug.Log($"boneAnimID_B (from GPU): {instances[0, 0].mesh.props_pad2}");
-                    Debug.Log($"animationID_B (from GPU): {instances[0, 0].mesh.props_pad1}");
-                    Debug.Log($"DirtyFlags: {instances[0, 0].mesh.DirtyFlags}");
-                }
-            }
-            else
-            {
-                // Отладочная информация каждые 60 кадров
-                if (f % 60 == 0)
-                {
-                    Debug.Log($"Animation B inactive: ID={instances[0, 0].mesh.props_animationID_B}");
-                }
+
             }
             
             // Run update
-            Debug.Log($"Before m.Update: DirtyFlags={instances[0, 0].mesh.DirtyFlags}");
             m.Update(Time.deltaTime);
-            Debug.Log($"After m.Update: DirtyFlags={instances[0, 0].mesh.DirtyFlags}");
             
 
             // visualize bone cpu-gpu synchronization
