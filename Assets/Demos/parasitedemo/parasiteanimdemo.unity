@@ -1653,8 +1653,12 @@ MonoBehaviour:
   blend: 1
   skinned_mesh: {fileID: 3156401128397487343, guid: 33a9547627899f24885a53dee4a37665,
     type: 3}
-  NInstancesSqrd: 1
+  NInstancesSqrd: 2
   FrustumCullingCamera: {fileID: 395002846}
+  enableAutoCrossFade: 1
+  useCrossFade: 1
+  autoCrossFadeInterval: 2
+  crossFadeDuration: 0.61
 --- !u!4 &2030649636
 Transform:
   m_ObjectHideFlags: 0

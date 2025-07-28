@@ -24,11 +24,27 @@ namespace GPUInstanceTest
         private float _lastBlend = -1f; // Для отслеживания изменений
         private ulong _animA_tick_start, _animB_tick_start;
         
-        // CrossFade переменные
+        // CrossFade переменные для инстанса [0,0] (для ручного управления)
         private bool _isCrossFading = false;
         private float _crossFadeStartTime = 0f;
         private float _crossFadeDuration = 0.25f;
         private GPUAnimation.Animation _crossFadeTargetAnimation;
+        
+        // CrossFade переменные для автоматического режима
+        private bool[,] _autoCrossFading;
+        private float[,] _autoCrossFadeStartTime;
+        private float[,] _autoCrossFadeDuration;
+        private GPUAnimation.Animation[,] _autoCrossFadeTargetAnimation;
+        
+        // Автоматический CrossFade
+        [Header("Auto CrossFade Settings")]
+        public bool enableAutoCrossFade = true;
+        public bool useCrossFade = true; // Галочка для сравнения
+        public float autoCrossFadeInterval = 2.0f;
+        [Range(0.1f, 3.0f)]
+        public float crossFadeDuration = 0.5f; // Длительность CrossFade (короткая для быстрого перехода)
+        private float _lastAutoCrossFadeTime = 0f;
+        private int _currentAutoAnimationIndex = 0;
 
         public void SetAnimationBlend(GPUAnimation.Animation a, GPUAnimation.Animation b, float blend, float speedA = 1, float speedB = 1, float startA = 0, float startB = 0)
         {
@@ -78,6 +94,85 @@ namespace GPUInstanceTest
                 // Это происходит автоматически в следующем кадре через compute shader
             }
         }
+        
+        /// <summary>
+        /// Завершает автоматический CrossFade для конкретного инстанса
+        /// </summary>
+        private void CompleteAutoCrossFade(int i, int j)
+        {
+            // Делаем анимацию B основной (анимация A)
+            instances[i, j].mesh.props_animationID = instances[i, j].mesh.props_animationID_B;
+            instances[i, j].mesh.props_instanceTicks = instances[i, j].mesh.props_instanceTicks_B;
+            
+            // Сбрасываем blend
+            instances[i, j].mesh.props_animationBlend = 0.0f;
+            
+            // Очищаем анимацию B
+            instances[i, j].mesh.props_animationID_B = 0;
+            instances[i, j].mesh.props_instanceTicks_B = 0;
+            
+            // Устанавливаем флаги для обновления
+            instances[i, j].mesh.DirtyFlags = instances[i, j].mesh.DirtyFlags | 
+                                             DirtyFlag.props_AnimationID | DirtyFlag.props_InstanceTicks | 
+                                             DirtyFlag.props_AnimationID_B | DirtyFlag.props_InstanceTicks_B | 
+                                             DirtyFlag.props_AnimationBlend | DirtyFlag.props_Extra;
+            
+            instances[i, j].UpdateRoot();
+            
+            // Отладочная информация
+            if (i == 0 && j == 0)
+            {
+                Debug.Log($"CompleteAutoCrossFade: Animation A now {instances[i, j].mesh.props_animationID}, Blend reset to {instances[i, j].mesh.props_animationBlend:F3}");
+            }
+        }
+        
+        /// <summary>
+        /// Автоматический CrossFade для половины инстансов
+        /// </summary>
+        private void AutoCrossFade()
+        {
+            if (!enableAutoCrossFade) return;
+            
+            if (Time.time - _lastAutoCrossFadeTime >= autoCrossFadeInterval)
+            {
+                _lastAutoCrossFadeTime = Time.time;
+                
+                // Выбираем следующую анимацию
+                _currentAutoAnimationIndex = (_currentAutoAnimationIndex + 1) % skinned_mesh.anim.animations.Length;
+                GPUAnimation.Animation nextAnimation = skinned_mesh.anim.animations[_currentAutoAnimationIndex];
+                
+                // Применяем к половине инстансов
+                int halfCount = NInstancesSqrd / 2;
+                
+                for (int i = 0; i < NInstancesSqrd; i++)
+                {
+                    for (int j = 0; j < NInstancesSqrd; j++)
+                    {
+                            if (useCrossFade)
+                            {
+                                // Запускаем CrossFade для этого инстанса
+                                _autoCrossFading[i, j] = true;
+                                _autoCrossFadeStartTime[i, j] = Time.time;
+                                _autoCrossFadeDuration[i, j] = crossFadeDuration;
+                                _autoCrossFadeTargetAnimation[i, j] = nextAnimation;
+                                
+                                // Вызываем CrossFade
+                                instances[i, j].CrossFade(nextAnimation, crossFadeDuration);
+                                instances[i, j].UpdateRoot();
+                            }
+                            else
+                            {
+                                // Обычная смена анимации без CrossFade
+                                instances[i, j].SetAnimation(nextAnimation);
+                                instances[i, j].UpdateRoot();
+                            }
+                    }
+                }
+                
+                Debug.Log($"Auto animation change: {(_currentAutoAnimationIndex + 1)}/{skinned_mesh.anim.animations.Length} " +
+                         $"({(useCrossFade ? "with CrossFade" : "without CrossFade")}) for {halfCount} instances");
+            }
+        }
 
         // Start is called before the first frame update
         void Start()
@@ -107,8 +202,20 @@ namespace GPUInstanceTest
                     instances[i, j].SetRadius(1.75f); // assign radius large enough so that the model doesn't get culled too early
                     instances[i, j].Initialize();
                     instances[i, j].SetAnimation(skinned_mesh.anim.animations[4], speed: Random.Range(0.1f, 3.0f), start_time: Random.Range(0.0f, 1.0f));
+                    
+                    // Инициализируем анимацию B для CrossFade
+                    instances[i, j].mesh.props_animationID_B = skinned_mesh.anim.animations[4].GPUAnimationID;
+                    instances[i, j].mesh.props_instanceTicks_B = (uint)(Random.Range(0.0f, 1.0f) * GPUInstance.Ticks.TicksPerSecond);
+                    instances[i, j].mesh.props_animationBlend = 0.0f; // Начинаем с 100% анимации A
+                    
                     instances[i, j].UpdateAll();
                 }
+                
+            // Инициализируем массивы для автоматического CrossFade
+            _autoCrossFading = new bool[NInstancesSqrd, NInstancesSqrd];
+            _autoCrossFadeStartTime = new float[NInstancesSqrd, NInstancesSqrd];
+            _autoCrossFadeDuration = new float[NInstancesSqrd, NInstancesSqrd];
+            _autoCrossFadeTargetAnimation = new GPUAnimation.Animation[NInstancesSqrd, NInstancesSqrd];
 
             //// visualize bones on the 0,0 model
             //var points = new InstanceData[instances[0, 0].skeleton.data.Length];
@@ -169,6 +276,45 @@ namespace GPUInstanceTest
                 if (progress >= 1.0f)
                 {
                     CompleteCrossFade();
+                }
+            }
+            
+            // Автоматический CrossFade
+            AutoCrossFade();
+            
+            // Обновляем автоматический CrossFade для всех инстансов
+            if (enableAutoCrossFade && useCrossFade)
+            {
+                for (int i = 0; i < NInstancesSqrd; i++)
+                {
+                    for (int j = 0; j < NInstancesSqrd; j++)
+                    {
+                        if (_autoCrossFading[i, j])
+                        {
+                            float elapsedTime = Time.time - _autoCrossFadeStartTime[i, j];
+                            float progress = Mathf.Clamp01(elapsedTime / _autoCrossFadeDuration[i, j]);
+                            
+                            // Простая линейная интерполяция
+                            float currentBlend = progress;
+                            instances[i, j].SetBlendFactor(currentBlend);
+                            instances[i, j].UpdateRoot();
+                            
+                            // Завершаем CrossFade когда достигли 100%
+                            if (progress >= 1.0f)
+                            {
+                                _autoCrossFading[i, j] = false;
+                                
+                                // Завершаем CrossFade правильно
+                                CompleteAutoCrossFade(i, j);
+                                
+                                // Отладочная информация при завершении
+                                if (i == 0 && j == 0)
+                                {
+                                    Debug.Log($"Auto CrossFade completed for instance [0,0] - Final blend: {currentBlend:F3}");
+                                }
+                            }
+                        }
+                    }
                 }
             }
             
@@ -246,6 +392,35 @@ namespace GPUInstanceTest
         private void CrossFadeToAnim4()
         {
             StartCrossFade(skinned_mesh.anim.animations[4], 0.3f);
+        }
+        
+        [ContextMenu("Toggle Auto CrossFade")]
+        private void ToggleAutoCrossFade()
+        {
+            enableAutoCrossFade = !enableAutoCrossFade;
+            Debug.Log($"Auto CrossFade: {(enableAutoCrossFade ? "ON" : "OFF")}");
+        }
+        
+        [ContextMenu("Toggle CrossFade Mode")]
+        private void ToggleCrossFadeMode()
+        {
+            useCrossFade = !useCrossFade;
+            Debug.Log($"CrossFade Mode: {(useCrossFade ? "ON" : "OFF")}");
+        }
+        
+        [ContextMenu("Reset All Animations")]
+        private void ResetAllAnimations()
+        {
+            for (int i = 0; i < NInstancesSqrd; i++)
+            {
+                for (int j = 0; j < NInstancesSqrd; j++)
+                {
+                    instances[i, j].SetAnimation(skinned_mesh.anim.animations[0]);
+                    instances[i, j].UpdateRoot();
+                }
+            }
+            _currentAutoAnimationIndex = 0;
+            Debug.Log("All animations reset to animation 0");
         }
 
         private void OnDestroy()

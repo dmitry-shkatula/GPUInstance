@@ -284,6 +284,12 @@ namespace GPUInstance
             this.mesh.props_animationBlend = Mathf.Clamp01(blend);
             this.mesh.DirtyFlags = this.mesh.DirtyFlags | DirtyFlag.props_AnimationBlend;
             
+            // Отладочная информация (только при значительных изменениях)
+            if (Mathf.Abs(blend - this.mesh.props_animationBlend) > 0.1f)
+            {
+                Debug.Log($"SetBlendFactor: {blend:F3} -> {this.mesh.props_animationBlend:F3}, Animation A: {this.mesh.props_animationID}, Animation B: {this.mesh.props_animationID_B}, Ticks A: {this.mesh.props_instanceTicks}, Ticks B: {this.mesh.props_instanceTicks_B}");
+            }
+            
             if (!ReferenceEquals(null, this.sub_mesh))
             {
                 for (int i = 0; i < this.sub_mesh.Length; i++)
@@ -307,38 +313,43 @@ namespace GPUInstance
             if (!_init)
                 throw new System.Exception("Error, skinned mesh is not initialized.");
 
-            // Простой подход: текущая анимация становится A, новая становится B
-            this.mesh.props_animationID = this.mesh.props_animationID_B;
-            this.mesh.props_instanceTicks = this.mesh.props_instanceTicks_B;
+            // Правильный подход: текущая анимация остается A, новая становится B
+            // НЕ меняем местами A и B!
+            
+            // Используем текущее время анимации A для синхронизации
+            // Это предотвращает "прыжки" к первому кадру
+            float currentTimeA = (float)this.mesh.props_instanceTicks / Ticks.TicksPerSecond;
+            
+            // Используем время анимации A для синхронизации
+            // Это предотвращает рывки при переключении
+            float syncTimeB = currentTimeA % 1.0f; // Нормализуем к 0-1 диапазону
             
             // Новая анимация становится B
             this.mesh.props_animationID_B = newAnimation.GPUAnimationID;
-            this.mesh.props_instanceTicks_B = (uint)(startTime * Ticks.TicksPerSecond);
+            this.mesh.props_instanceTicks_B = (uint)(syncTimeB * Ticks.TicksPerSecond);
             this.mesh.props_AnimationSpeed = speed;
             this.mesh.props_AnimationPlayOnce = !loop;
             
-            // Начинаем с blend = 0
+            // Начинаем с blend = 0 (100% анимация A)
             this.mesh.props_animationBlend = 0.0f;
             
-            // Устанавливаем флаги для обновления всех полей
-            this.mesh.DirtyFlags = this.mesh.DirtyFlags | DirtyFlag.props_AnimationID | DirtyFlag.props_InstanceTicks | 
-                                   DirtyFlag.props_AnimationID_B | DirtyFlag.props_InstanceTicks_B | DirtyFlag.props_AnimationBlend;
+            // Устанавливаем флаги для обновления полей B и blend
+            this.mesh.DirtyFlags = this.mesh.DirtyFlags | DirtyFlag.props_AnimationID_B | DirtyFlag.props_InstanceTicks_B | DirtyFlag.props_AnimationBlend | DirtyFlag.props_Extra;
+            
+            // Отладочная информация
+            Debug.Log($"CrossFade started - Animation A: {this.mesh.props_animationID}, Animation B: {this.mesh.props_animationID_B}, Sync Time: {syncTimeB:F3}, Current Time A: {currentTimeA:F3}");
 
             if (!ReferenceEquals(null, this.sub_mesh))
             {
                 for (int i = 0; i < this.sub_mesh.Length; i++)
                 {
-                    this.sub_mesh[i].props_animationID = this.sub_mesh[i].props_animationID_B;
-                    this.sub_mesh[i].props_instanceTicks = this.sub_mesh[i].props_instanceTicks_B;
-                    
                     this.sub_mesh[i].props_animationID_B = newAnimation.GPUAnimationID;
-                    this.sub_mesh[i].props_instanceTicks_B = (uint)(startTime * Ticks.TicksPerSecond);
+                    this.sub_mesh[i].props_instanceTicks_B = (uint)(syncTimeB * Ticks.TicksPerSecond);
                     this.sub_mesh[i].props_AnimationSpeed = speed;
                     this.sub_mesh[i].props_AnimationPlayOnce = !loop;
                     this.sub_mesh[i].props_animationBlend = 0.0f;
                     
-                    this.sub_mesh[i].DirtyFlags = this.sub_mesh[i].DirtyFlags | DirtyFlag.props_AnimationID | DirtyFlag.props_InstanceTicks | 
-                                                  DirtyFlag.props_AnimationID_B | DirtyFlag.props_InstanceTicks_B | DirtyFlag.props_AnimationBlend;
+                    this.sub_mesh[i].DirtyFlags = this.sub_mesh[i].DirtyFlags | DirtyFlag.props_AnimationID_B | DirtyFlag.props_InstanceTicks_B | DirtyFlag.props_AnimationBlend | DirtyFlag.props_Extra;
                 }
             }
         }
