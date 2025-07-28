@@ -201,7 +201,7 @@ namespace GPUInstanceTest
                     instances[i, j].mesh.position = new Vector3(i * 1.5f, 0, j * 1.5f); // set position
                     instances[i, j].SetRadius(1.75f); // assign radius large enough so that the model doesn't get culled too early
                     instances[i, j].Initialize();
-                    instances[i, j].SetAnimation(skinned_mesh.anim.animations[4], speed: Random.Range(0.1f, 3.0f), start_time: Random.Range(0.0f, 1.0f));
+                    //instances[i, j].SetAnimation(skinned_mesh.anim.animations[4], speed: Random.Range(0.1f, 3.0f), start_time: Random.Range(0.0f, 1.0f));
                     
                     // Инициализируем анимацию B для CrossFade
                     instances[i, j].mesh.props_animationID_B = skinned_mesh.anim.animations[4].GPUAnimationID;
@@ -262,7 +262,7 @@ namespace GPUInstanceTest
             // Вторая анимация обновляется автоматически в compute shader
             
             // Обновляем CrossFade
-            if (_isCrossFading)
+            /*if (_isCrossFading)
             {
                 float elapsedTime = Time.time - _crossFadeStartTime;
                 float progress = Mathf.Clamp01(elapsedTime / _crossFadeDuration);
@@ -277,7 +277,7 @@ namespace GPUInstanceTest
                 {
                     CompleteCrossFade();
                 }
-            }
+            }*/
             
             // Автоматический CrossFade
             AutoCrossFade();
