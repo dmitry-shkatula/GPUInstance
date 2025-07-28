@@ -133,7 +133,7 @@ namespace GPUInstance
 
         public struct instance_properties_delta : InstanceMeshDelta
         {
-            public const int kByteStride = 72;
+            public const int kByteStride = 76;
             public Vector2 offset { get; set; }         // 8 bytes
             public Vector2 tiling { get; set; }         // 8 bytes
             public int instance_id { get; set; }        // 4 bytes
@@ -147,9 +147,10 @@ namespace GPUInstance
             public int extra { get; set; }              // 4 bytes
             public int propertyID { get; set; }         // 4 bytes
             public int DirtyFlags { get; set; }         // 4 bytes
-            public uint pathInstanceTicks { get; set; } // 4 bytes
-            public int pad2 { get; set; }               // 4 bytes
-            public int padding { get; set; }            // 4 bytes - для выравнивания до 72 байт
+                    public uint pathInstanceTicks { get; set; } // 4 bytes
+        public int pad1 { get; set; }               // 4 bytes
+        public int pad2 { get; set; }               // 4 bytes
+        public int padding { get; set; }            // 4 bytes - для выравнивания до 76 байт
 
             public int id { get { return this.propertyID; } } // Реализация интерфейса InstanceMeshDelta
             public ushort GetGroupID() { return 1; } // Заглушка, если не используется группировка
@@ -157,7 +158,7 @@ namespace GPUInstance
             public instance_properties_delta(
                 Vector2 offset, Vector2 tiling, int instance_id, int color, uint instanceTicks,
                 int animationID, int animationID_B, uint instanceTicks_B, float animationBlend,
-                int pathID, int extra, int propertyID, int DirtyFlags, uint pathInstanceTicks, int pad2, int padding)
+                int pathID, int extra, int propertyID, int DirtyFlags, uint pathInstanceTicks, int pad1, int pad2, int padding)
             {
                 this.offset = offset;
                 this.tiling = tiling;
@@ -173,6 +174,7 @@ namespace GPUInstance
                 this.propertyID = propertyID;
                 this.DirtyFlags = DirtyFlags;
                 this.pathInstanceTicks = pathInstanceTicks;
+                this.pad1 = pad1;
                 this.pad2 = pad2;
                 this.padding = padding;
             }
@@ -183,7 +185,7 @@ namespace GPUInstance
                 int animationID, int pathID, int extra, int propertyID, uint pathInstanceTicks, int pad2)
                 : this(offset, tiling, instance_id, color, instanceTicks,
                        animationID, 0, 0, 0f, // blending-поля по умолчанию
-                       pathID, extra, propertyID, 0, pathInstanceTicks, pad2, 0) // DirtyFlags = 0, padding = 0
+                       pathID, extra, propertyID, 0, pathInstanceTicks, 0, pad2, 0) // DirtyFlags = 0, pad1 = 0, padding = 0
             { }
         }
     }
@@ -193,7 +195,7 @@ namespace GPUInstance
     /// </summary>
     public struct InstanceProperties : InstanceDataProps
     {
-        public const int kByteStride = 72; // Размер структуры для GPU (без ulong pathStartTick)
+        public const int kByteStride = 76; // Размер структуры для GPU (без ulong pathStartTick)
         
         public Vector2 offset { get; set; }         // 8 bytes
         public Vector2 tiling { get; set; }         // 8 bytes
@@ -209,6 +211,7 @@ namespace GPUInstance
         public int propertyID { get; set; }         // 4 bytes
         public int DirtyFlags { get; set; }         // 4 bytes
         public uint pathInstanceTicks { get; set; } // 4 bytes
+        public int pad1 { get; set; }               // 4 bytes
         public int pad2 { get; set; }               // 4 bytes
         public int padding { get; set; }            // 4 bytes - для выравнивания до 72 байт
         public ulong pathStartTick { get; set; }    // 8 bytes (CPU only)
@@ -230,6 +233,7 @@ namespace GPUInstance
         public int propertyID { get { throw new System.NotImplementedException(); } set { throw new System.NotImplementedException(); } }
         public int DirtyFlags { get { throw new System.NotImplementedException(); } set { throw new System.NotImplementedException(); } }
         public uint pathInstanceTicks { get { throw new System.NotImplementedException(); } set { throw new System.NotImplementedException(); } }
+        public int pad1 { get { throw new System.NotImplementedException(); } set { throw new System.NotImplementedException(); } }
         public int pad2 { get { throw new System.NotImplementedException(); } set { throw new System.NotImplementedException(); } }
         public int animationID_B { get { throw new System.NotImplementedException(); } set { throw new System.NotImplementedException(); } }
         public uint instanceTicks_B { get { throw new System.NotImplementedException(); } set { throw new System.NotImplementedException(); } }
@@ -342,6 +346,7 @@ namespace GPUInstance
         public int propertyID { get; set; }
         public int DirtyFlags { get; set; }
         public uint pathInstanceTicks { get; set; }
+        public int pad1 { get; set; }
         public int pad2 { get; set; }
         public int animationID_B { get; set; }
         public uint instanceTicks_B { get; set; }
@@ -378,7 +383,11 @@ namespace GPUInstance
         props_AnimationID = 65536,
         props_pathInstanceTicks = 131072,
         props_InstanceTicks = 524288,
-        props_pad2 = 1048576,
+        props_AnimationID_B = 1048576,
+        props_InstanceTicks_B = 2097152,
+        props_AnimationBlend = 4194304,
+        props_pad1 = 8388608,
+        props_pad2 = 16777216,
 
         All = -1
     }
@@ -410,6 +419,10 @@ namespace GPUInstance
         public const int props_AnimationID = (int)DirtyFlags.props_AnimationID;
         public const int props_pathInstanceTicks = (int)DirtyFlags.props_pathInstanceTicks;
         public const int props_InstanceTicks = (int)DirtyFlags.props_InstanceTicks;
+        public const int props_AnimationID_B = (int)DirtyFlags.props_AnimationID_B;
+        public const int props_InstanceTicks_B = (int)DirtyFlags.props_InstanceTicks_B;
+        public const int props_AnimationBlend = (int)DirtyFlags.props_AnimationBlend;
+        public const int props_pad1 = (int)DirtyFlags.props_pad1;
         public const int props_pad2 = (int)DirtyFlags.props_pad2;
 
         public const int radius = (int)DirtyFlags.Data1; // radius is part of data1

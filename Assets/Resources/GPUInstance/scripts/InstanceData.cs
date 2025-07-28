@@ -248,6 +248,10 @@ namespace GPUInstance
         /// <summary>
         /// not used
         /// </summary>
+        public int props_pad1 { get { return this.props.pad1; } set { this.props.pad1 = value; } }
+        /// <summary>
+        /// not used
+        /// </summary>
         public int props_pad2 { get { return this.props.pad2; } set { this.props.pad2 = value; } }
 
         /// <summary>

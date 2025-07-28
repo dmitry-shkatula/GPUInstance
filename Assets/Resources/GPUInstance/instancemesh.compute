@@ -862,6 +862,9 @@ void MotionUpdate(uint3 id : SV_DispatchThreadID)
       {
         has_second_animation = true;
       }
+      
+      // ПРИНУДИТЕЛЬНЫЙ ТЕСТ: всегда включаем вторую анимацию
+      has_second_animation = true;
 
       float anim_clip_length = get_AnimationClipLength(boneAnimID);
       float anim_clip_length_B = has_second_animation ? get_AnimationClipLength(boneAnimID_B) : anim_clip_length;
@@ -870,33 +873,22 @@ void MotionUpdate(uint3 id : SV_DispatchThreadID)
       t = t <= 0 ? 0.0000001 : (t >= 1 ? 0.9999999 : t); // exclusive clamp
       tB = tB <= 0 ? 0.0000001 : (tB >= 1 ? 0.9999999 : tB);
 
-      float3 posA = InterpPosition(t, boneAnimID);
-      float3 posB = has_second_animation ? InterpPosition(tB, boneAnimID_B) : posA;
-      float3 pos = lerp(posA, posB, animationBlend);
-
-      float3 scaleA = InterpScale(t, boneAnimID);
-      float3 scaleB = has_second_animation ? InterpScale(tB, boneAnimID_B) : scaleA;
-      float3 scale = lerp(scaleA, scaleB, animationBlend);
-
-      float4 rotA = InterpRotation(t, boneAnimID);
-      float4 rotB = has_second_animation ? InterpRotation(tB, boneAnimID_B) : rotA;
-      float4 rot = Slerp(rotA, rotB, animationBlend);
+      // ТЕСТ: Используем первую анимацию с разными параметрами времени
+      float3 pos;
+      float3 scale;
+      float4 rot;
       
-      // Простой тест: если blend = 1, используем только вторую анимацию
-      if (animationBlend >= 0.99f && has_second_animation)
-      {
-        pos = InterpPosition(tB, boneAnimID_B);
-        scale = InterpScale(tB, boneAnimID_B);
-        rot = InterpRotation(tB, boneAnimID_B);
-      }
+      // ТЕСТ: Используем boneAnimID_B напрямую
+      // Отладочная информация - сохраняем boneAnimID_B в props.pad2
+      props.pad2 = boneAnimID_B;
+      // Сохраняем tB * 1000 в props.pad1 для отладки
+      props.pad1 = (uint)(tB * 1000.0f);
+      // Сохраняем animationID_B в props.pad1 для отладки (вместо tB)
+      props.pad1 = props.animationID_B;
       
-      // Еще более простой тест: если blend > 0.5, используем только вторую анимацию
-      if (animationBlend > 0.5f && has_second_animation)
-      {
-        pos = InterpPosition(tB, boneAnimID_B);
-        scale = InterpScale(tB, boneAnimID_B);
-        rot = InterpRotation(tB, boneAnimID_B);
-      }
+      pos = InterpPosition(t, boneAnimID_B);
+      scale = InterpScale(t, boneAnimID_B);
+      rot = InterpRotation(t, boneAnimID_B);
       
 
 

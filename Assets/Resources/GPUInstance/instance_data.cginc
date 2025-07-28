@@ -25,7 +25,11 @@
 #define Dirty_Flag_props_AnimationID 65536
 #define Dirty_Flag_props_PathInstanceTicks 131072
 #define Dirty_Flag_props_InstanceTicks 524288
-#define Dirty_Flag_props_Pad2 1048576
+#define Dirty_Flag_props_AnimationID_B 1048576
+#define Dirty_Flag_props_InstanceTicks_B 2097152
+#define Dirty_Flag_props_AnimationBlend 4194304
+#define Dirty_Flag_props_Pad1 8388608
+#define Dirty_Flag_props_Pad2 16777216
 
 #define Data1_Flag_Invisible 24
 #define Data1_Flag_Is_Bone 25
@@ -126,8 +130,9 @@ struct instance_properties
   int propertyID;           // 4 bytes
   int DirtyFlags;           // 4 bytes
   uint pathInstanceTicks;   // 4 bytes
+  int pad1;                 // 4 bytes
   int pad2;                 // 4 bytes
-  int padding;              // 4 bytes - для выравнивания до 72 байт
+  int padding;              // 4 bytes - для выравнивания до 76 байт
 };
 
 struct instance_properties_delta
@@ -146,8 +151,9 @@ struct instance_properties_delta
   int propertyID;           // 4 bytes
   int DirtyFlags;           // 4 bytes
   uint pathInstanceTicks;   // 4 bytes
+  int pad1;                 // 4 bytes
   int pad2;                 // 4 bytes
-  int padding;              // 4 bytes - для выравнивания до 72 байт
+  int padding;              // 4 bytes - для выравнивания до 76 байт
 };
 
 struct hierarchy_delta
@@ -352,7 +358,10 @@ inline instance_properties update_instance_properties(instance_properties d, ins
   update_flag = delta.DirtyFlags & Dirty_Flag_props_Pad2;
   d.pad2 = update_flag > 0 ? delta.pad2 : d.pad2;
 
-  // Обновляем новые поля для blending
+  update_flag = delta.DirtyFlags & Dirty_Flag_props_Pad1;
+  d.pad1 = update_flag > 0 ? delta.pad1 : d.pad1;
+
+  // Обновляем новые поля для blending (временно используем существующие флаги)
   update_flag = delta.DirtyFlags & Dirty_Flag_props_AnimationID;
   d.animationID_B = update_flag > 0 ? delta.animationID_B : d.animationID_B;
 
@@ -361,6 +370,12 @@ inline instance_properties update_instance_properties(instance_properties d, ins
 
   update_flag = delta.DirtyFlags & Dirty_Flag_props_AnimationID;
   d.animationBlend = update_flag > 0 ? delta.animationBlend : d.animationBlend;
+
+  update_flag = delta.DirtyFlags & Dirty_Flag_props_Pad1;
+  d.pad1 = update_flag > 0 ? delta.pad1 : d.pad1;
+
+  update_flag = delta.DirtyFlags & Dirty_Flag_props_Pad2;
+  d.pad2 = update_flag > 0 ? delta.pad2 : d.pad2;
 
   update_flag = delta.DirtyFlags & Dirty_Flag_props_Pad2;
   d.padding = update_flag > 0 ? delta.padding : d.padding;
@@ -385,6 +400,7 @@ inline instance_properties_delta instance_properties_delta_zero()
   d.propertyID = 0;
   d.DirtyFlags = 0;
   d.pathInstanceTicks = 0;
+  d.pad1 = 0;
   d.pad2 = 0;
   d.padding = 0;
   return d;
