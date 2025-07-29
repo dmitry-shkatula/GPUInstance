@@ -284,12 +284,6 @@ namespace GPUInstance
             this.mesh.props_animationBlend = Mathf.Clamp01(blend);
             this.mesh.DirtyFlags = this.mesh.DirtyFlags | DirtyFlag.props_AnimationBlend;
             
-            // Отладочная информация (только при значительных изменениях)
-            if (Mathf.Abs(blend - this.mesh.props_animationBlend) > 0.1f)
-            {
-                Debug.Log($"SetBlendFactor: {blend:F3} -> {this.mesh.props_animationBlend:F3}, Animation A: {this.mesh.props_animationID}, Animation B: {this.mesh.props_animationID_B}, Ticks A: {this.mesh.props_instanceTicks}, Ticks B: {this.mesh.props_instanceTicks_B}");
-            }
-            
             if (!ReferenceEquals(null, this.sub_mesh))
             {
                 for (int i = 0; i < this.sub_mesh.Length; i++)
@@ -336,9 +330,6 @@ namespace GPUInstance
             // Устанавливаем флаги для обновления полей B и blend
             this.mesh.DirtyFlags = this.mesh.DirtyFlags | DirtyFlag.props_AnimationID_B | DirtyFlag.props_InstanceTicks_B | DirtyFlag.props_AnimationBlend | DirtyFlag.props_Extra;
             
-            // Отладочная информация
-            Debug.Log($"CrossFade started - Animation A: {this.mesh.props_animationID}, Animation B: {this.mesh.props_animationID_B}, Sync Time: {syncTimeB:F3}, Current Time A: {currentTimeA:F3}");
-
             if (!ReferenceEquals(null, this.sub_mesh))
             {
                 for (int i = 0; i < this.sub_mesh.Length; i++)

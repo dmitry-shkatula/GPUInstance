@@ -118,12 +118,6 @@ namespace GPUInstanceTest
                                              DirtyFlag.props_AnimationBlend | DirtyFlag.props_Extra;
             
             instances[i, j].UpdateRoot();
-            
-            // Отладочная информация
-            if (i == 0 && j == 0)
-            {
-                Debug.Log($"CompleteAutoCrossFade: Animation A now {instances[i, j].mesh.props_animationID}, Blend reset to {instances[i, j].mesh.props_animationBlend:F3}");
-            }
         }
         
         /// <summary>
@@ -138,8 +132,6 @@ namespace GPUInstanceTest
                 _lastAutoCrossFadeTime = Time.time;
                 
                 // Выбираем следующую анимацию
-                _currentAutoAnimationIndex = (_currentAutoAnimationIndex + 1) % skinned_mesh.anim.animations.Length;
-                GPUAnimation.Animation nextAnimation = skinned_mesh.anim.animations[_currentAutoAnimationIndex];
                 
                 // Применяем к половине инстансов
                 int halfCount = NInstancesSqrd / 2;
@@ -148,6 +140,9 @@ namespace GPUInstanceTest
                 {
                     for (int j = 0; j < NInstancesSqrd; j++)
                     {
+                        _currentAutoAnimationIndex = Random.Range(0, skinned_mesh.anim.animations.Length);
+                        GPUAnimation.Animation nextAnimation = skinned_mesh.anim.animations[_currentAutoAnimationIndex];
+                        
                             if (useCrossFade)
                             {
                                 // Запускаем CrossFade для этого инстанса
@@ -168,9 +163,6 @@ namespace GPUInstanceTest
                             }
                     }
                 }
-                
-                Debug.Log($"Auto animation change: {(_currentAutoAnimationIndex + 1)}/{skinned_mesh.anim.animations.Length} " +
-                         $"({(useCrossFade ? "with CrossFade" : "without CrossFade")}) for {halfCount} instances");
             }
         }
 
@@ -306,12 +298,6 @@ namespace GPUInstanceTest
                                 
                                 // Завершаем CrossFade правильно
                                 CompleteAutoCrossFade(i, j);
-                                
-                                // Отладочная информация при завершении
-                                if (i == 0 && j == 0)
-                                {
-                                    Debug.Log($"Auto CrossFade completed for instance [0,0] - Final blend: {currentBlend:F3}");
-                                }
                             }
                         }
                     }
@@ -344,14 +330,14 @@ namespace GPUInstanceTest
             }
 
             // visualize bone cpu-gpu synchronization
-            for (int i = 0; i < bones_unity.Length; i++)
+            /*for (int i = 0; i < bones_unity.Length; i++)
             {
                 Vector3 position; Quaternion rotation; Vector3 scale;
                 instances[0, 0].BoneWorldTRS(i, out position, out rotation, out scale);
                 bones_unity[i].transform.position = position;
                 bones_unity[i].transform.rotation = rotation;
                 bones_unity[i].transform.localScale = new Vector3(0.05f, 0.05f, 0.05f);
-            }
+            }*/
 
             f++;
         }
