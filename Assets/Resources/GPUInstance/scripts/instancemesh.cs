@@ -1735,19 +1735,13 @@ namespace GPUInstance
                 int pad1 = 0;
                 
                 // Проверяем, есть ли у data свойства blending
-                if (data is IInstanceMeshData meshData)
+                if (data.HasBlending)
                 {
-                    // Используем reflection для получения свойств, если они есть
-                    var type = data.GetType();
-                    var animationID_B_prop = type.GetProperty("props_animationID_B");
-                    var instanceTicks_B_prop = type.GetProperty("props_instanceTicks_B");
-                    var animationBlend_prop = type.GetProperty("props_animationBlend");
-                    var pad1_prop = type.GetProperty("props_pad1");
-                    
-                    if (animationID_B_prop != null) animationID_B = (int)animationID_B_prop.GetValue(data);
-                    if (instanceTicks_B_prop != null) instanceTicks_B = (uint)instanceTicks_B_prop.GetValue(data);
-                    if (animationBlend_prop != null) animationBlend = (float)animationBlend_prop.GetValue(data);
-                    if (pad1_prop != null) pad1 = (int)pad1_prop.GetValue(data);
+                    // Используем свойства напрямую без рефлексии
+                    animationID_B = data.props_animationID_B;
+                    instanceTicks_B = data.props_instanceTicks_B;
+                    animationBlend = data.props_animationBlend;
+                    pad1 = data.props_pad1;
                 }
                 
                 _property_delta_buffer.UpdateInstance(new instance_properties_delta(data.props_offset, data.props_tiling, data.id, data.props_color,

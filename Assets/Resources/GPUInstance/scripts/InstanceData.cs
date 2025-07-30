@@ -195,6 +195,7 @@ namespace GPUInstance
         /// Does this instance have properties?
         /// </summary>
         public bool HasProperties { get; private set; }
+        public bool HasBlending { get; private set; }
         /// <summary>
         /// properties for instance data
         /// </summary>
@@ -430,6 +431,7 @@ namespace GPUInstance
             this.DirtyFlags = GPUInstance.DirtyFlag.All;
 
             this.HasProperties = has_props; // default to using properties (ie, some of the fields in here are only useable if properties==true)
+            this.HasBlending = has_props; // blending is available when properties are available
             this.props = default(Props);
 
             if (this.HasProperties)

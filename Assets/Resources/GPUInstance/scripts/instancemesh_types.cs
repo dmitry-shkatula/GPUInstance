@@ -215,6 +215,16 @@ namespace GPUInstance
         public int pad2 { get; set; }               // 4 bytes
         public int padding { get; set; }            // 4 bytes - для выравнивания до 72 байт
         public ulong pathStartTick { get; set; }    // 8 bytes (CPU only)
+        
+        /// <summary>
+        /// Use properties for this instance?
+        /// </summary>
+        public bool HasProperties { get { return true; } }
+        
+        /// <summary>
+        /// Use blending for this instance?
+        /// </summary>
+        public bool HasBlending { get { return true; } }
     }
 
     /// <summary>
@@ -238,9 +248,25 @@ namespace GPUInstance
         public int animationID_B { get { throw new System.NotImplementedException(); } set { throw new System.NotImplementedException(); } }
         public uint instanceTicks_B { get { throw new System.NotImplementedException(); } set { throw new System.NotImplementedException(); } }
         public float animationBlend { get { throw new System.NotImplementedException(); } set { throw new System.NotImplementedException(); } }
+        
+        // Реализация интерфейса IInstanceMeshData для блендинга
+        public int props_animationID_B { get { throw new System.NotImplementedException(); } set { throw new System.NotImplementedException(); } }
+        public uint props_instanceTicks_B { get { throw new System.NotImplementedException(); } set { throw new System.NotImplementedException(); } }
+        public float props_animationBlend { get { throw new System.NotImplementedException(); } set { throw new System.NotImplementedException(); } }
+        public int props_pad1 { get { throw new System.NotImplementedException(); } set { throw new System.NotImplementedException(); } }
 
 
         public ulong pathStartTick { get { throw new System.NotImplementedException(); } set { throw new System.NotImplementedException(); } }
+        
+        /// <summary>
+        /// Use properties for this instance?
+        /// </summary>
+        public bool HasProperties { get { return false; } }
+        
+        /// <summary>
+        /// Use blending for this instance?
+        /// </summary>
+        public bool HasBlending { get { return false; } }
     }
 
     /// <summary>
@@ -308,6 +334,22 @@ namespace GPUInstance
         int skeletonID { get; set; }
         uint props_instanceTicks { get; set; }
         /// <summary>
+        /// Animation ID for blending (animation B)
+        /// </summary>
+        int props_animationID_B { get; set; }
+        /// <summary>
+        /// Instance ticks for blending (animation B)
+        /// </summary>
+        uint props_instanceTicks_B { get; set; }
+        /// <summary>
+        /// Animation blend factor
+        /// </summary>
+        float props_animationBlend { get; set; }
+        /// <summary>
+        /// Padding field 1
+        /// </summary>
+        int props_pad1 { get; set; }
+        /// <summary>
         /// Dirty flags
         /// </summary>
         int DirtyFlags { get; set; }
@@ -327,6 +369,10 @@ namespace GPUInstance
         /// Use properties for this instance?
         /// </summary>
         bool HasProperties { get; }
+        /// <summary>
+        /// Use blending for this instance?
+        /// </summary>
+        bool HasBlending { get; }
         /// <summary>
         /// If this instance is a bone: |31-24 bone anim lod level| 23-8 bone type| 7-0 bone index|. If not a bone, then this field is currently unused.
         /// </summary>
@@ -352,6 +398,11 @@ namespace GPUInstance
         public uint instanceTicks_B { get; set; }
         public float animationBlend { get; set; }
 
+        // Реализация интерфейса IInstanceMeshData для блендинга
+        public int props_animationID_B { get { return this.animationID_B; } set { this.animationID_B = value; } }
+        public uint props_instanceTicks_B { get { return this.instanceTicks_B; } set { this.instanceTicks_B = value; } }
+        public float props_animationBlend { get { return this.animationBlend; } set { this.animationBlend = value; } }
+        public int props_pad1 { get { return this.pad1; } set { this.pad1 = value; } }
 
         public ulong pathStartTick { get; set; } // cpu-only field
     }
