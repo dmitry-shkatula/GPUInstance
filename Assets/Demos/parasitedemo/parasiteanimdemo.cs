@@ -197,6 +197,9 @@ namespace GPUInstanceTest
                     instances[i, j].SetRadius(1.75f); // assign radius large enough so that the model doesn't get culled too early
                     instances[i, j].Initialize();
                     
+                    // Ensure the first animation is set
+                    instances[i, j].SetAnimation(skinned_mesh.anim.animations[0]);
+                    
                     // Инициализируем анимацию B для CrossFade
                     instances[i, j].mesh.props_animationID_B = skinned_mesh.anim.animations[4].GPUAnimationID;
                     instances[i, j].mesh.props_instanceTicks_B = (uint)(Random.Range(0.0f, 1.0f) * GPUInstance.Ticks.TicksPerSecond);
@@ -217,13 +220,13 @@ namespace GPUInstanceTest
             //    m.Append(ref points[i]);
             //}
 
-            /*bones_unity = new GameObject[instances[0, 0].skeleton.data.Length];
+            bones_unity = new GameObject[instances[0, 0].skeleton.data.Length];
             for (int i = 0; i < bones_unity.Length; i++)
             {
                 var obj = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 obj.name = "Calculated Bone Transform " + i.ToString();
                 bones_unity[i] = obj;
-            }*/
+            }
             
             Task.Run(UpdateThread);
         }
@@ -261,14 +264,17 @@ namespace GPUInstanceTest
             }
 
             // visualize bone cpu-gpu synchronization
-            /*for (int i = 0; i < bones_unity.Length; i++)
+            if (bones_unity != null && instances[0, 0].Initialized())
             {
-                Vector3 position; Quaternion rotation; Vector3 scale;
-                instances[0, 0].BoneWorldTRS(i, out position, out rotation, out scale);
-                bones_unity[i].transform.position = position;
-                bones_unity[i].transform.rotation = rotation;
-                bones_unity[i].transform.localScale = new Vector3(0.05f, 0.05f, 0.05f);
-            }*/
+                for (int i = 0; i < bones_unity.Length; i++)
+                {
+                    Vector3 position; Quaternion rotation; Vector3 scale;
+                    instances[0, 0].BoneWorldTRS(i, out position, out rotation, out scale);
+                    bones_unity[i].transform.position = position;
+                    bones_unity[i].transform.rotation = rotation;
+                    bones_unity[i].transform.localScale = new Vector3(0.05f, 0.05f, 0.05f);
+                }
+            }
 
             f++;
         }

@@ -102,8 +102,14 @@ namespace GPUAnimation
             if (bone < 0 || bone >= this.Controller.BoneCount)
                 throw new System.Exception("Error, input an invalid bone index");
 
-            Matrix4x4 p2w = bone == AnimationController.kRootBoneID ? root2World : CalculateBone2World(root2World, this.Controller.bone_parents[bone], a, tickStart, mesh);
+            // Handle null animation
+            if (a == null)
+            {
+                // Return identity transform for the bone
+                return root2World;
+            }
 
+            Matrix4x4 p2w = bone == AnimationController.kRootBoneID ? root2World : CalculateBone2World(root2World, this.Controller.bone_parents[bone], a, tickStart, mesh);
 
             var bAnim = a.boneAnimations[bone];
             var t = calculateAnimationTime(bone, bAnim, tickStart, mesh);

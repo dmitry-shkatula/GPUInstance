@@ -28,6 +28,7 @@ namespace GPUInstance
         private ulong _anim_tick_start;
         private MeshInstancer m;
         private GPUAnimation.Animation _current_anim;
+        private GPUAnimation.Animation _next_anim;
         private bool _init;
 
         // CrossFade state fields
@@ -49,6 +50,7 @@ namespace GPUInstance
             this._init = false;
             this._anim_tick_start = 0;
             this._current_anim = null;
+            this._next_anim = null;
             this.sub_mesh = null;
             
             // Initialize CrossFade fields
@@ -69,6 +71,7 @@ namespace GPUInstance
             this._init = false;
             this._anim_tick_start = 0;
             this._current_anim = null;
+            this._next_anim = null;
             
             // Initialize CrossFade fields
             this.isCrossFading = false;
@@ -112,6 +115,10 @@ namespace GPUInstance
             this.mesh.props_AnimationSpeed = 1;
             this.mesh.props_instanceTicks = 0;
             this.mesh.skeletonID = m.GetNewSkeletonID(); // get skeleton id
+
+            // Set the current animation reference
+            this._current_anim = skeleton.Controller.animations[0];
+            this._anim_tick_start = this.m.Ticks;
 
             // Initialize sub mesh
             if (!ReferenceEquals(null, this.sub_mesh))
@@ -171,19 +178,199 @@ namespace GPUInstance
             Vector3 position; Quaternion rotation; Vector3 scale;
             CalcTRS(path, p, out position, out rotation, out scale);
             Matrix4x4 mesh2world = Matrix4x4.TRS(position, rotation, scale);
+            
+            // Use CrossFade-aware bone calculation if CrossFade is active
+            if (this.isCrossFading && this.mesh.props_animationBlend > 0.0f)
+            {
+                return CalcBone2WorldWithCrossFade(mesh2world, bone);
+            }
+            
+            // Ensure we have a valid animation
+            if (this._current_anim == null)
+            {
+                // Try to get the first available animation
+                if (this.skeleton.Controller.animations.Length > 0)
+                {
+                    this._current_anim = this.skeleton.Controller.animations[0];
+                }
+                else
+                {
+                    // Return identity matrix if no animation is available
+                    return mesh2world;
+                }
+            }
+            
             return this.skeleton.CalculateBone2World(mesh2world, bone, this._current_anim, this._anim_tick_start, this.mesh);
+        }
+
+        public Matrix4x4 CalcBone2World(int bone)
+        {
+            Matrix4x4 mesh2world = Matrix4x4.TRS(mesh.position, mesh.rotation, mesh.scale);
+            
+            // Use CrossFade-aware bone calculation if CrossFade is active
+            if (this.isCrossFading && this.mesh.props_animationBlend > 0.0f)
+            {
+                return CalcBone2WorldWithCrossFade(mesh2world, bone);
+            }
+            
+            // Ensure we have a valid animation
+            if (this._current_anim == null)
+            {
+                // Try to get the first available animation
+                if (this.skeleton.Controller.animations.Length > 0)
+                {
+                    this._current_anim = this.skeleton.Controller.animations[0];
+                }
+                else
+                {
+                    // Return identity matrix if no animation is available
+                    return mesh2world;
+                }
+            }
+            
+            return this.skeleton.CalculateBone2World(mesh2world, bone, this._current_anim, this._anim_tick_start, this.mesh);
+        }
+
+        /// <summary>
+        /// Calculate bone world matrix with CrossFade blending between two animations
+        /// This mirrors the GPU shader logic for proper CPU-GPU synchronization
+        /// </summary>
+        private Matrix4x4 CalcBone2WorldWithCrossFade(Matrix4x4 mesh2world, int bone)
+        {
+            if (bone < 0 || bone >= this.skeleton.Controller.BoneCount)
+                throw new System.Exception("Error, input an invalid bone index");
+
+            // Get the current animation (Animation A) and target animation (Animation B)
+            var animA = this._current_anim;
+            var animB = this.crossFadeTargetAnimation;
+            
+            // Ensure we have valid animations
+            if (animA == null)
+            {
+                if (this.skeleton.Controller.animations.Length > 0)
+                {
+                    animA = this.skeleton.Controller.animations[0];
+                    this._current_anim = animA;
+                }
+                else
+                {
+                    return mesh2world; // Return identity if no animation available
+                }
+            }
+            
+            if (animB == null)
+            {
+                // If target animation is null, just use animation A
+                return CalculateBoneMatrixForAnimation(mesh2world, bone, animA, this.mesh.props_instanceTicks);
+            }
+
+            // Calculate bone matrices for both animations using the same time logic as GPU shader
+            // GPU uses props.instanceTicks for animation A and instanceTicks_B for animation B
+            Matrix4x4 boneMatrixA = CalculateBoneMatrixForAnimation(mesh2world, bone, animA, this.mesh.props_instanceTicks);
+            Matrix4x4 boneMatrixB = CalculateBoneMatrixForAnimation(mesh2world, bone, animB, this.mesh.props_instanceTicks_B);
+
+            // Blend between the two bone matrices using the current blend factor
+            float blend = this.mesh.props_animationBlend;
+            return BlendBoneMatrices(boneMatrixA, boneMatrixB, blend);
+        }
+
+        /// <summary>
+        /// Calculate bone matrix for a specific animation at a specific time
+        /// </summary>
+        private Matrix4x4 CalculateBoneMatrixForAnimation(Matrix4x4 mesh2world, int bone, GPUAnimation.Animation animation, uint instanceTicks)
+        {
+            if (bone == AnimationController.kRootBoneID)
+                return mesh2world;
+
+            // Calculate parent bone matrix recursively
+            Matrix4x4 parentMatrix = CalculateBoneMatrixForAnimation(mesh2world, this.skeleton.Controller.bone_parents[bone], animation, instanceTicks);
+
+            // Get bone animation data
+            var boneAnim = animation.boneAnimations[bone];
+            
+            // Calculate animation time for this bone
+            float t = CalculateAnimationTimeForBone(bone, boneAnim, instanceTicks);
+            
+            // Interpolate bone transform
+            Vector3 position = boneAnim.InterpPosition(t);
+            Quaternion rotation = boneAnim.InterpRotation(t);
+            Vector3 scale = boneAnim.InterpScale(t);
+            
+            Matrix4x4 boneTransform = Matrix4x4.TRS(position, rotation, scale);
+            return parentMatrix * boneTransform;
+        }
+
+        /// <summary>
+        /// Calculate animation time for a specific bone, mirroring the GPU shader logic
+        /// </summary>
+        private float CalculateAnimationTimeForBone(int bone, BoneAnimation boneAnim, uint instanceTicks)
+        {
+            uint clipTickLen = boneAnim.AnimationTickLength;
+            uint animSpeed = this.mesh.props_AnimationSpeedRaw;
+            bool loop = !this.mesh.props_AnimationPlayOnce;
+
+            // Calculate elapsed time using the same logic as GPU shader
+            ulong elapsedTicks = ((this.m.Ticks - this._anim_tick_start) * animSpeed) / 10;
+            elapsedTicks += instanceTicks;
+
+            // Calculate current tick
+            ulong animTick;
+            if (loop)
+            {
+                animTick = elapsedTicks % clipTickLen;
+            }
+            else
+            {
+                animTick = elapsedTicks >= clipTickLen ? clipTickLen - 1 : elapsedTicks % clipTickLen;
+            }
+
+            return (float)animTick / (float)clipTickLen;
+        }
+
+        /// <summary>
+        /// Blend between two bone matrices using position, rotation, and scale interpolation
+        /// </summary>
+        private Matrix4x4 BlendBoneMatrices(Matrix4x4 matrixA, Matrix4x4 matrixB, float blend)
+        {
+            // Decompose both matrices
+            Vector3 positionA, positionB;
+            Quaternion rotationA, rotationB;
+            Vector3 scaleA, scaleB;
+            
+            DecomposeMatrix(matrixA, out positionA, out rotationA, out scaleA);
+            DecomposeMatrix(matrixB, out positionB, out rotationB, out scaleB);
+
+            // Interpolate position, rotation, and scale
+            Vector3 blendedPosition = Vector3.Lerp(positionA, positionB, blend);
+            Quaternion blendedRotation = Quaternion.Slerp(rotationA, rotationB, blend);
+            Vector3 blendedScale = Vector3.Lerp(scaleA, scaleB, blend);
+
+            // Reconstruct the blended matrix
+            return Matrix4x4.TRS(blendedPosition, blendedRotation, blendedScale);
+        }
+
+        /// <summary>
+        /// Decompose a matrix into position, rotation, and scale
+        /// </summary>
+        private void DecomposeMatrix(Matrix4x4 matrix, out Vector3 position, out Quaternion rotation, out Vector3 scale)
+        {
+            position = matrix.GetColumn(3);
+            
+            Vector3 forward = matrix.GetColumn(2);
+            Vector3 up = matrix.GetColumn(1);
+            rotation = Quaternion.LookRotation(forward, up);
+            
+            scale = new Vector3(
+                matrix.GetColumn(0).magnitude,
+                matrix.GetColumn(1).magnitude,
+                matrix.GetColumn(2).magnitude
+            );
         }
 
         public void BoneWorldTRS(in Path path, in PathArrayHelper p, int bone, out Vector3 position, out Quaternion rotation, out Vector3 scale)
         {
             var b2w = CalcBone2World(path, p, bone);
             decompose(b2w, out position, out rotation, out scale);
-        }
-
-        public Matrix4x4 CalcBone2World(int bone)
-        {
-            Matrix4x4 mesh2world = Matrix4x4.TRS(mesh.position, mesh.rotation, mesh.scale);
-            return this.skeleton.CalculateBone2World(mesh2world, bone, this._current_anim, this._anim_tick_start, this.mesh);
         }
 
         public void BoneWorldTRS(int bone, out Vector3 position, out Quaternion rotation, out Vector3 scale)
@@ -275,6 +462,8 @@ namespace GPUInstance
             this.mesh.props_animationBlend = Mathf.Clamp01(blend);
             this.mesh.props_AnimationSpeed = speedA; // NB: only speedA for now
             this.mesh.props_AnimationPlayOnce = !loopA;
+            this._current_anim = animA;
+            this._next_anim = animB;
             
             // Устанавливаем флаги для обновления всех blending полей
             this.mesh.DirtyFlags = this.mesh.DirtyFlags | DirtyFlag.props_AnimationID | DirtyFlag.props_InstanceTicks | DirtyFlag.props_AnimationBlend;
@@ -342,6 +531,9 @@ namespace GPUInstance
             this.mesh.DirtyFlags = this.mesh.DirtyFlags | DirtyFlag.props_AnimationID | DirtyFlag.props_InstanceTicks | 
                                    DirtyFlag.props_AnimationID_B | DirtyFlag.props_InstanceTicks_B | DirtyFlag.props_AnimationBlend;
 
+            // Update current animation reference
+            this._current_anim = this.crossFadeTargetAnimation;
+            
             if (!ReferenceEquals(null, this.sub_mesh))
             {
                 for (int i = 0; i < this.sub_mesh.Length; i++)
@@ -410,42 +602,37 @@ namespace GPUInstance
             if (!_init)
                 throw new System.Exception("Error, skinned mesh is not initialized.");
 
-            // Правильный подход: текущая анимация остается A, новая становится B
-            // НЕ меняем местами A и B!
+            // Store the target animation for CPU-side calculations
+            this.crossFadeTargetAnimation = newAnimation;
             
-            // Используем текущее время анимации A для синхронизации
-            // Это предотвращает "прыжки" к первому кадру
-            float currentTimeA = (float)this.mesh.props_instanceTicks / Ticks.TicksPerSecond;
+            // Get current time of animation A for synchronization
+            uint currentTicksA = this.mesh.props_instanceTicks;
             
-            // Используем время анимации A для синхронизации
-            // Это предотвращает рывки при переключении
-            float syncTimeB = currentTimeA % 1.0f; // Нормализуем к 0-1 диапазону
-            
-            // Новая анимация становится B
+            // Initialize animation B with the same time as animation A to prevent jumps
+            // This ensures both animations start from the same point in time
             this.mesh.props_animationID_B = newAnimation.GPUAnimationID;
-            this.mesh.props_instanceTicks_B = (uint)(syncTimeB * Ticks.TicksPerSecond);
+            this.mesh.props_instanceTicks_B = currentTicksA; // Use same time as A for smooth transition
             this.mesh.props_AnimationSpeed = speed;
             this.mesh.props_AnimationPlayOnce = !loop;
             
-            // Начинаем с blend = 0 (100% анимация A)
+            // Start with blend = 0 (100% animation A)
             this.mesh.props_animationBlend = 0.0f;
             
-            
-            
-            // Устанавливаем флаги для обновления полей B и blend
+            // Set flags for updating B fields and blend
             this.mesh.DirtyFlags = this.mesh.DirtyFlags | DirtyFlag.props_AnimationID_B | DirtyFlag.props_InstanceTicks_B | DirtyFlag.props_AnimationBlend | DirtyFlag.props_Extra;
            
-            // Сохраняем состояние CrossFade
+            // Store CrossFade state
             this.isCrossFading = true;
             this.crossFadeStartTime = time;
             this.crossFadeDuration = fadeTime;
-            this.crossFadeTargetAnimation = newAnimation;
+            
+            // Update sub-meshes if they exist
             if (!ReferenceEquals(null, this.sub_mesh))
             {
                 for (int i = 0; i < this.sub_mesh.Length; i++)
                 {
                     this.sub_mesh[i].props_animationID_B = newAnimation.GPUAnimationID;
-                    this.sub_mesh[i].props_instanceTicks_B = (uint)(syncTimeB * Ticks.TicksPerSecond);
+                    this.sub_mesh[i].props_instanceTicks_B = currentTicksA; // Use same time as A
                     this.sub_mesh[i].props_AnimationSpeed = speed;
                     this.sub_mesh[i].props_AnimationPlayOnce = !loop;
                     this.sub_mesh[i].props_animationBlend = 0.0f;
