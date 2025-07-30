@@ -1657,7 +1657,7 @@ MonoBehaviour:
   FrustumCullingCamera: {fileID: 395002846}
   enableAutoCrossFade: 1
   useCrossFade: 1
-  autoCrossFadeInterval: 0.07
+  autoCrossFadeInterval: 5
   crossFadeDuration: 0.61
 --- !u!4 &2030649636
 Transform:
