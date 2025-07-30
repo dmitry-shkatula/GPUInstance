@@ -117,7 +117,7 @@ namespace GPUInstance
 
         public struct instance_properties
         {
-            public const int kByteStride = 48; // make sure byte alignment to vec4
+            public const int kByteStride = 76; // make sure byte alignment to vec4
 
             public Vector2 offset;
             public Vector2 tiling;
@@ -125,10 +125,17 @@ namespace GPUInstance
             public int color;
             public uint instanceTicks;
             public int animationID;
+            public int animationID_B;
+            public uint instanceTicks_B;
+            public float animationBlend;
             public int pathID;
             public int extra;
+            public int propertyID;
+            public int DirtyFlags;
             public uint pathInstanceTicks; // path instance ticks- only ever set in shader
+            public int pad1;
             public int pad2;
+            public int padding;
         }
 
         public struct instance_properties_delta : InstanceMeshDelta
