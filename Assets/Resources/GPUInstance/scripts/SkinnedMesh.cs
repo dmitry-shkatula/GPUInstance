@@ -26,6 +26,12 @@ namespace GPUInstance
         private GPUAnimation.Animation _current_anim;
         private bool _init;
 
+        // CrossFade state fields
+        public bool isCrossFading;
+        public float crossFadeStartTime;
+        public float crossFadeDuration;
+        public GPUAnimation.Animation crossFadeTargetAnimation;
+
         /// <summary>
         /// Number of GPU Instances that this object will use.
         /// </summary>
@@ -40,6 +46,12 @@ namespace GPUInstance
             this._anim_tick_start = 0;
             this._current_anim = null;
             this.sub_mesh = null;
+            
+            // Initialize CrossFade fields
+            this.isCrossFading = false;
+            this.crossFadeStartTime = 0f;
+            this.crossFadeDuration = 0f;
+            this.crossFadeTargetAnimation = null;
         }
 
         public SkinnedMesh(GPUSkinnedMeshComponent c, MeshInstancer m, int initial_lod=MeshInstancer.MaxLODLevel)
@@ -52,6 +64,12 @@ namespace GPUInstance
             this._init = false;
             this._anim_tick_start = 0;
             this._current_anim = null;
+            
+            // Initialize CrossFade fields
+            this.isCrossFading = false;
+            this.crossFadeStartTime = 0f;
+            this.crossFadeDuration = 0f;
+            this.crossFadeTargetAnimation = null;
 
             // create parent mesh instance
             this.mesh = new InstanceData<InstanceProperties>(c.MeshTypes[initial_lod][0]);
@@ -295,6 +313,73 @@ namespace GPUInstance
         }
 
         /// <summary>
+        /// Complete the current CrossFade by making animation B the main animation
+        /// </summary>
+        public void CompleteCrossFade()
+        {
+            if (!_init || !this.isCrossFading)
+                return;
+
+            // Make animation B the main animation
+            this.mesh.props_animationID = this.mesh.props_animationID_B;
+            this.mesh.props_instanceTicks = this.mesh.props_instanceTicks_B;
+            
+            // Reset blend
+            this.mesh.props_animationBlend = 0.0f;
+            
+            // Clear animation B
+            this.mesh.props_animationID_B = 0;
+            this.mesh.props_instanceTicks_B = 0;
+            
+            // Set flags for update
+            this.mesh.DirtyFlags = this.mesh.DirtyFlags | DirtyFlag.props_AnimationID | DirtyFlag.props_InstanceTicks | 
+                                   DirtyFlag.props_AnimationID_B | DirtyFlag.props_InstanceTicks_B | DirtyFlag.props_AnimationBlend;
+
+            if (!ReferenceEquals(null, this.sub_mesh))
+            {
+                for (int i = 0; i < this.sub_mesh.Length; i++)
+                {
+                    this.sub_mesh[i].props_animationID = this.sub_mesh[i].props_animationID_B;
+                    this.sub_mesh[i].props_instanceTicks = this.sub_mesh[i].props_instanceTicks_B;
+                    this.sub_mesh[i].props_animationBlend = 0.0f;
+                    this.sub_mesh[i].props_animationID_B = 0;
+                    this.sub_mesh[i].props_instanceTicks_B = 0;
+                    
+                    this.sub_mesh[i].DirtyFlags = this.sub_mesh[i].DirtyFlags | DirtyFlag.props_AnimationID | DirtyFlag.props_InstanceTicks | 
+                                                  DirtyFlag.props_AnimationID_B | DirtyFlag.props_InstanceTicks_B | DirtyFlag.props_AnimationBlend;
+                }
+            }
+
+            // Clear CrossFade state
+            this.isCrossFading = false;
+            this.crossFadeStartTime = 0f;
+            this.crossFadeDuration = 0f;
+            this.crossFadeTargetAnimation = null;
+        }
+
+
+        public void OnRefreshCrossFade()
+        {
+            if (!isCrossFading)
+                return;
+
+            float elapsedTime = Time.time - crossFadeStartTime;
+            float progress = Mathf.Clamp01(elapsedTime / crossFadeDuration);
+
+            // Простая линейная интерполяция
+            float currentBlend = progress;
+            SetBlendFactor(currentBlend);
+
+            // Завершаем CrossFade когда достигли 100%
+            if (progress >= 1.0f)
+            {
+                CompleteCrossFade();
+            }
+
+            UpdateAll();
+        }
+
+        /// <summary>
         /// Плавно переходит к новой анимации через CrossFade
         /// </summary>
         /// <param name="newAnimation">Новая анимация</param>
@@ -302,7 +387,18 @@ namespace GPUInstance
         /// <param name="speed">Скорость новой анимации</param>
         /// <param name="startTime">Время начала новой анимации</param>
         /// <param name="loop">Зацикливать ли новую анимацию</param>
-        public void CrossFade(GPUAnimation.Animation newAnimation, float fadeTime = 0.25f, float speed = 1, float startTime = 0, bool loop = true)
+        public void CrossFade(GPUAnimation.Animation newAnimation, float fadeTime = 0.25f, float speed = 1, float startTime = 0, bool loop = true) =>
+           this.CrossFade(newAnimation, fadeTime, speed, startTime, loop, Time.time);
+        
+        /// <summary>
+        /// Плавно переходит к новой анимации через CrossFade
+        /// </summary>
+        /// <param name="newAnimation">Новая анимация</param>
+        /// <param name="fadeTime">Время перехода в секундах</param>
+        /// <param name="speed">Скорость новой анимации</param>
+        /// <param name="startTime">Время начала новой анимации</param>
+        /// <param name="loop">Зацикливать ли новую анимацию</param>
+        public void CrossFade(GPUAnimation.Animation newAnimation, float fadeTime = 0.25f, float speed = 1, float startTime = 0, bool loop = true, float time = 0)
         {
             if (!_init)
                 throw new System.Exception("Error, skinned mesh is not initialized.");
@@ -327,9 +423,16 @@ namespace GPUInstance
             // Начинаем с blend = 0 (100% анимация A)
             this.mesh.props_animationBlend = 0.0f;
             
+            
+            
             // Устанавливаем флаги для обновления полей B и blend
             this.mesh.DirtyFlags = this.mesh.DirtyFlags | DirtyFlag.props_AnimationID_B | DirtyFlag.props_InstanceTicks_B | DirtyFlag.props_AnimationBlend | DirtyFlag.props_Extra;
-            
+           
+            // Сохраняем состояние CrossFade
+            this.isCrossFading = true;
+            this.crossFadeStartTime = time;
+            this.crossFadeDuration = fadeTime;
+            this.crossFadeTargetAnimation = newAnimation;
             if (!ReferenceEquals(null, this.sub_mesh))
             {
                 for (int i = 0; i < this.sub_mesh.Length; i++)
