@@ -265,7 +265,8 @@ namespace GPUInstance
             }
 
             // Calculate bone matrices for both animations using the same time logic as GPU shader
-            // GPU uses props.instanceTicks for animation A and instanceTicks_B for animation B
+            // For CrossFade, both animations should use the same elapsed time calculation
+            // but with their respective instanceTicks offsets
             Matrix4x4 boneMatrixA = CalculateBoneMatrixForAnimation(mesh2world, bone, animA, this.mesh.props_instanceTicks);
             Matrix4x4 boneMatrixB = CalculateBoneMatrixForAnimation(mesh2world, bone, animB, this.mesh.props_instanceTicks_B);
 
@@ -465,6 +466,12 @@ namespace GPUInstance
             this._current_anim = animA;
             this._next_anim = animB;
             
+            // Обновляем _anim_tick_start только если анимация A действительно изменилась
+            if (animAChanged)
+            {
+                this._anim_tick_start = this.m.Ticks;
+            }
+            
             // Устанавливаем флаги для обновления всех blending полей
             this.mesh.DirtyFlags = this.mesh.DirtyFlags | DirtyFlag.props_AnimationID | DirtyFlag.props_InstanceTicks | DirtyFlag.props_AnimationBlend;
 
@@ -533,6 +540,10 @@ namespace GPUInstance
 
             // Update current animation reference
             this._current_anim = this.crossFadeTargetAnimation;
+            
+            // Обновляем _anim_tick_start только когда CrossFade завершается
+            // Это обеспечивает правильный расчет времени для новой анимации
+            this._anim_tick_start = this.m.Ticks;
             
             if (!ReferenceEquals(null, this.sub_mesh))
             {
@@ -617,6 +628,9 @@ namespace GPUInstance
             
             // Start with blend = 0 (100% animation A)
             this.mesh.props_animationBlend = 0.0f;
+            
+            // НЕ обновляем _anim_tick_start здесь, чтобы сохранить правильное время начала анимации
+            // _anim_tick_start будет обновлен только в CompleteCrossFade() когда анимация B станет основной
             
             // Set flags for updating B fields and blend
             this.mesh.DirtyFlags = this.mesh.DirtyFlags | DirtyFlag.props_AnimationID_B | DirtyFlag.props_InstanceTicks_B | DirtyFlag.props_AnimationBlend | DirtyFlag.props_Extra;
