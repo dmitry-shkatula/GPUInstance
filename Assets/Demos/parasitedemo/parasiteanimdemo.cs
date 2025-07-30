@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using GPUInstance;
 using UnityEngine;
 
@@ -142,13 +143,32 @@ namespace GPUInstanceTest
                         instances[i, j].SetAnimation(randomAnimation);
                     }
 
-                    instances[i, j].UpdateAll();
+                    instances[i, j].UpdateAllInOtherThread();
 
                     processedCount++;
                 }
             }
         }
 
+        private async void UpdateThread()
+        {
+            while (true)
+            {
+                await Task.Yield();
+
+                for (int i = 0; i < NInstancesSqrd; i++)
+                {
+                    for (int j = 0; j < NInstancesSqrd; j++)
+                    {
+                        if (!instances[i, j]._updateFlag)
+                            continue;
+                        
+                        instances[i, j].UpdateAll();
+                    }
+                }
+            }
+        }
+        
         // Start is called before the first frame update
         void Start()
         {
@@ -176,7 +196,6 @@ namespace GPUInstanceTest
                     instances[i, j].mesh.position = new Vector3(i * 1.5f, 0, j * 1.5f); // set position
                     instances[i, j].SetRadius(1.75f); // assign radius large enough so that the model doesn't get culled too early
                     instances[i, j].Initialize();
-                    //instances[i, j].SetAnimation(skinned_mesh.anim.animations[4], speed: Random.Range(0.1f, 3.0f), start_time: Random.Range(0.0f, 1.0f));
                     
                     // Инициализируем анимацию B для CrossFade
                     instances[i, j].mesh.props_animationID_B = skinned_mesh.anim.animations[4].GPUAnimationID;
@@ -198,57 +217,22 @@ namespace GPUInstanceTest
             //    m.Append(ref points[i]);
             //}
 
-            bones_unity = new GameObject[instances[0, 0].skeleton.data.Length];
+            /*bones_unity = new GameObject[instances[0, 0].skeleton.data.Length];
             for (int i = 0; i < bones_unity.Length; i++)
             {
                 var obj = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 obj.name = "Calculated Bone Transform " + i.ToString();
                 bones_unity[i] = obj;
-            }
+            }*/
             
-            // Инициализируем blending
-            _lastBlend = blend;
-            instances[0, 0].SetAnimationBlend(skinned_mesh.anim.animations[2], skinned_mesh.anim.animations[4], blend);
-            instances[0, 0].UpdateRoot();
+            Task.Run(UpdateThread);
         }
 
         int f = 1;
         // Update is called once per frame
         void Update()
         {
-            // Assign frustum culling camera
             m.FrustumCamera = FrustumCullingCamera;
-            
-                        // Применяем blending только при изменении значения
-            if (Mathf.Abs(blend - _lastBlend) > 0.001f)
-            {
-                // Изменяем только blend factor без сброса анимаций
-                instances[0, 0].SetBlendFactor(blend);
-                instances[0, 0].UpdateRoot(); // Обновляем изменения на GPU
-                _lastBlend = blend;
-            }
-            
-            // Вторая анимация обновляется автоматически в compute shader
-            
-            // Обновляем CrossFade
-            /*if (_isCrossFading)
-            {
-                float elapsedTime = Time.time - _crossFadeStartTime;
-                float progress = Mathf.Clamp01(elapsedTime / _crossFadeDuration);
-                
-                // Простая линейная интерполяция
-                float currentBlend = progress;
-                instances[0, 0].SetBlendFactor(currentBlend);
-                instances[0, 0].UpdateRoot();
-                
-                // Завершаем CrossFade когда достигли 100%
-                if (progress >= 1.0f)
-                {
-                    CompleteCrossFade();
-                }
-            }*/
-            
-            // Автоматический CrossFade
             AutoCrossFade();
             
             // Run update

@@ -1,7 +1,10 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Threading;
 using UnityEngine;
 using GPUAnimation;
+using UnityEditor.VersionControl;
+using Task = System.Threading.Tasks.Task;
 
 namespace GPUInstance
 {
@@ -20,6 +23,7 @@ namespace GPUInstance
         /// </summary>
         public InstanceData<InstanceProperties>[] sub_mesh;
         public Skeleton skeleton;
+        public bool _updateFlag;
 
         private ulong _anim_tick_start;
         private MeshInstancer m;
@@ -52,6 +56,7 @@ namespace GPUInstance
             this.crossFadeStartTime = 0f;
             this.crossFadeDuration = 0f;
             this.crossFadeTargetAnimation = null;
+            _updateFlag = false;
         }
 
         public SkinnedMesh(GPUSkinnedMeshComponent c, MeshInstancer m, int initial_lod=MeshInstancer.MaxLODLevel)
@@ -87,6 +92,8 @@ namespace GPUInstance
             {
                 this.sub_mesh = null;
             }
+            
+            _updateFlag = false;
         }
 
         /// <summary>
@@ -376,7 +383,7 @@ namespace GPUInstance
                 CompleteCrossFade();
             }
 
-            UpdateAll();
+            UpdateAllInOtherThread();
         }
 
         /// <summary>
@@ -465,6 +472,12 @@ namespace GPUInstance
             skeleton.Update();
         }
 
+        public void UpdateAllInOtherThread()
+        {
+            _updateFlag = true;
+        }
+        
+        
         /// <summary>
         /// Updates only the root instance.
         /// </summary>
